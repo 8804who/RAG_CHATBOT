@@ -1,0 +1,30 @@
+[project]
+name = "app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "asyncpg>=0.31.0",
+    "authlib>=1.7.2",
+    "fastapi[standard]>=0.136.3",
+    "greenlet>=3.5.1",
+    "itsdangerous>=2.2.0",
+    "pydantic-settings>=2.14.1",
+    "pytest>=9.0.3",
+    "qdrant-client>=1.18.0",
+    "redis>=8.0.0",
+    "ruff>=0.15.16",
+    "sqlalchemy>=2.0.50",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
+
+[tool.pytest.ini_options]
+# backend/app is the import root (see CLAUDE.md); make root-relative imports
+# like `from core.config import config` resolve when running pytest from here.
+pythonpath = ["."]
+testpaths = ["tests"]
