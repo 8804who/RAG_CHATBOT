@@ -1,6 +1,8 @@
 class BaseAppException(Exception):
-    def __init__(self, message: str, code_path: str, status_code: int = 400):
+    status_code: int
+    response_message: str
+
+    def __init__(self, message: str, code_path: str):
         self.message = message
         self.code_path = code_path
-        self.status_code = status_code
         super().__init__(message)

@@ -10,6 +10,7 @@ from core.config import config
 from dependencies.clients import get_qdrant_client, get_redis_client
 from dependencies.services import get_google_oauth2_service
 from dependencies.db import engine
+from exceptions.handler import register_exception_handlers
 from models import Base
 
 
@@ -25,6 +26,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title="RAG Chatbot API", lifespan=lifespan)
+
+register_exception_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
