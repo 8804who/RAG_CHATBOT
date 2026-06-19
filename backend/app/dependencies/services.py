@@ -6,6 +6,7 @@ from repositories.vector_db import QdrantRepository
 from services.auth import GoogleOAuth2Service
 from services.vector_db import QdrantService
 
+
 @lru_cache
 def get_google_oauth2_service() -> GoogleOAuth2Service:
     auth_repository: AuthRepository = get_auth_repository()

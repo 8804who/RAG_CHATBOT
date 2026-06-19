@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import (
 
 from core.config import config
 
-postgres_url = f"postgresql+asyncpg://{config.POSTGRES_USER}:{config.POSTGRES_PASSWORD}@{config.POSTGRES_HOST}:{config.POSTGRES_PORT}/{config.POSTGRES_DB}"      
+postgres_url = f"postgresql+asyncpg://{config.POSTGRES_USER}:{config.POSTGRES_PASSWORD}@{config.POSTGRES_HOST}:{config.POSTGRES_PORT}/{config.POSTGRES_DB}"
 
 engine = create_async_engine(
     postgres_url,

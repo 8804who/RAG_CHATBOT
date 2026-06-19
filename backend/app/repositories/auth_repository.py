@@ -16,9 +16,7 @@ class AuthRepository:
     async def get_user_by_google_sub(
         self, db: AsyncSession, google_sub: str
     ) -> User | None:
-        result = await db.execute(
-            select(User).where(User.google_sub == google_sub)
-        )
+        result = await db.execute(select(User).where(User.google_sub == google_sub))
         return result.scalar_one_or_none()
 
     async def upsert_user(
@@ -64,7 +62,5 @@ class AuthRepository:
         return result.scalar_one_or_none()
 
     async def delete_google_session(self, db: AsyncSession, token: str) -> None:
-        await db.execute(
-            delete(GoogleSession).where(GoogleSession.token == token)
-        )
+        await db.execute(delete(GoogleSession).where(GoogleSession.token == token))
         await db.commit()

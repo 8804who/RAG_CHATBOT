@@ -5,9 +5,11 @@ from dependencies.clients import get_qdrant_client
 from repositories import AuthRepository
 from repositories.vector_db import QdrantRepository
 
+
 @lru_cache
 def get_auth_repository() -> AuthRepository:
     return AuthRepository()
+
 
 @lru_cache
 def get_qdrant_repository() -> QdrantRepository:

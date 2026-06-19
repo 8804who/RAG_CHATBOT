@@ -9,6 +9,6 @@ class QdrantDBClient:
             url=config.QDRANT_URL,
             api_key=config.QDRANT_API_KEY,
         )
-    
+
     async def close(self) -> None:
         await self.client.close()

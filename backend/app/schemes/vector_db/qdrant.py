@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+
 @dataclass(slots=True)
 class QdrantCollectionInfo:
     collection_name: Optional[str] = None

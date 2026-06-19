@@ -58,9 +58,7 @@ class GoogleOAuth2Service(AuthService):
         )
 
         session_token = secrets.token_urlsafe(32)
-        expires_at = datetime.now(UTC) + timedelta(
-            seconds=config.SESSION_TTL_SECONDS
-        )
+        expires_at = datetime.now(UTC) + timedelta(seconds=config.SESSION_TTL_SECONDS)
         await self._auth_repository.create_google_session(
             db, user_id=user.id, token=session_token, expires_at=expires_at
         )
