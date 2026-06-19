@@ -70,3 +70,46 @@ export interface CreateCollectionRequest {
   embedding_model: EmbeddingModelInfo
   on_disk_payload: boolean
 }
+
+// Single-collection detail (GET /collections/{name}). Qdrant cannot change a
+// vector's size/distance after creation, so only on_disk / optimizer params are
+// editable — see UpdateCollectionRequest below.
+export interface DenseVectorDetail {
+  size: number
+  distance: string
+  on_disk: boolean
+}
+
+export interface SparseVectorDetail {
+  modifier: string | null
+  on_disk: boolean
+}
+
+export interface CollectionDetail {
+  name: string
+  status: string
+  points_count: number
+  dense_vectors: Record<string, DenseVectorDetail>
+  sparse_vectors: Record<string, SparseVectorDetail>
+  indexing_threshold: number | null
+  default_segment_number: number | null
+}
+
+export interface DenseVectorUpdateConfig {
+  on_disk?: boolean | null
+}
+
+export interface SparseVectorUpdateConfig {
+  on_disk?: boolean | null
+}
+
+export interface OptimizersConfigUpdate {
+  indexing_threshold?: number | null
+  default_segment_number?: number | null
+}
+
+export interface UpdateCollectionRequest {
+  dense_vectors?: Record<string, DenseVectorUpdateConfig>
+  sparse_vectors?: Record<string, SparseVectorUpdateConfig>
+  optimizers_config?: OptimizersConfigUpdate
+}

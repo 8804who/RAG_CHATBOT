@@ -1,3 +1,4 @@
+import { CollectionListItem } from '../components/collections/CollectionListItem'
 import CreateCollectionForm from '../components/collections/CreateCollectionForm'
 import { useCollections, useCreateCollection } from '../hooks/useCollections'
 import { ApiError } from '../lib/api/client'
@@ -66,17 +67,10 @@ export default function CollectionsPage() {
             ) : (
               <ul className="divide-y divide-gray-100">
                 {collections.map((collection) => (
-                  <li
+                  <CollectionListItem
                     key={collection.name}
-                    className="flex items-center gap-3 px-5 py-3.5"
-                  >
-                    <span className="grid size-8 place-items-center rounded-lg bg-brand-50 text-brand-600">
-                      ▤
-                    </span>
-                    <span className="truncate text-sm font-medium text-gray-900">
-                      {collection.name}
-                    </span>
-                  </li>
+                    collection={collection}
+                  />
                 ))}
               </ul>
             )}
