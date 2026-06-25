@@ -46,7 +46,8 @@ class EmbeddingModelRegistry:
         return entry[0]
 
     def resolve(self, model_name: str) -> EmbeddingClient:
-        """모델 이름으로 dense 임베딩 client resolve(미등록 시 예외).
+        """
+        모델 이름으로 dense 임베딩 client resolve(미등록 시 예외).
 
         Parameters:
             model_name(str): resolve할 모델 이름

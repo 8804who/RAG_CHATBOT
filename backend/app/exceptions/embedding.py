@@ -22,7 +22,9 @@ class EmbeddingModelDimensionMismatchError(AppException):
 
 
 class EmbeddingGenerationError(AppException):
-    """임베딩 생성(provider 호출) 중 오류가 발생한 경우."""
+    """
+    임베딩 과정에서 오류가 발생한 경우
+    """
 
     status_code = status.HTTP_502_BAD_GATEWAY
     response_message = "임베딩 생성에 실패했습니다"
