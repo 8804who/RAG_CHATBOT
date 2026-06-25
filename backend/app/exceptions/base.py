@@ -1,4 +1,4 @@
-class BaseAppException(Exception):
+class AppException(Exception):
     status_code: int
     response_message: str
 

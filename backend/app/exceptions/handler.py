@@ -3,13 +3,13 @@ import logging
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from exceptions.base import BaseAppException
+from exceptions.base import AppException
 
 logger = logging.getLogger(__name__)
 
 
 async def app_exception_handler(
-    request: Request, exc: BaseAppException
+    request: Request, exc: AppException
 ) -> JSONResponse:
     """
     커스텀 예외 처리
@@ -31,14 +31,14 @@ async def app_exception_handler(
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """
-    예상하지 못한 예외 처리
+    정의되지 않은 예외 처리
 
     Parameters:
         request: 예외가 발생한 요청
         exc: 커스텀 예외가 아닌 모든 예외
 
     Returns:
-        내부 정보를 감춘 500 JSON 응답.
+        500 JSON 응답.
     """
     # 전체 스택 트레이스는 로그로만 남기고, 프론트엔드에는 일반 메시지를 반환한다.
     logger.exception("%s\n오류 발생 위치: %s", request.method, request.url.path)
@@ -49,13 +49,11 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """앱에 예외 핸들러 등록.
+    """
+    예외 핸들러 등록
 
     Parameters:
-        app: 핸들러를 등록할 FastAPI 인스턴스.
-
-    Returns:
-        없음.
+        app: FastAPI 인스턴스.
     """
-    app.add_exception_handler(BaseAppException, app_exception_handler)
+    app.add_exception_handler(AppException, app_exception_handler)
     app.add_exception_handler(Exception, unhandled_exception_handler)

@@ -45,6 +45,7 @@ class CollectionDetailResponse(BaseModel):
     sparse_vectors: dict[str, SparseVectorDetail]
     indexing_threshold: int | None
     default_segment_number: int | None
+    embedding_model: str | None = None
 
 
 class CollectionSummaryResponse(BaseModel):
@@ -55,3 +56,44 @@ class CollectionSummaryResponse(BaseModel):
 
 class CollectionsResponse(BaseModel):
     collections: list[CollectionSummaryResponse]
+
+
+### Models (embedding catalog)
+class EmbeddingModelResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    provider: str
+    dimension: int
+
+
+class AvailableModelsResponse(BaseModel):
+    # 프론트 드롭다운 소스. 채팅 모델은 추후 chat 필드로 확장.
+    embedding: list[EmbeddingModelResponse]
+
+
+### Documents (ingestion)
+class DocumentSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: str
+    filename: str
+    chunk_count: int
+    created_at: str | None
+
+
+class DocumentsResponse(BaseModel):
+    documents: list[DocumentSummaryResponse]
+
+
+class DocumentChunkResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    chunk_id: str
+    chunk_index: int
+    text: str
+
+
+class DocumentChunksResponse(BaseModel):
+    document_id: str
+    chunks: list[DocumentChunkResponse]

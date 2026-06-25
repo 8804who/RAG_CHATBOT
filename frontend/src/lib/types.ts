@@ -32,6 +32,48 @@ export interface ChatMessage {
   createdAt: string
 }
 
+// Embedding model catalog (GET /models). Drives the model dropdown shown when
+// creating a collection.
+export interface EmbeddingModel {
+  name: string
+  provider: string
+  dimension: number
+}
+
+export interface AvailableModelsResponse {
+  embedding: EmbeddingModel[]
+}
+
+// Document ingestion (POST /collections/{name}/documents). The frontend reads a
+// text file's contents and sends them as `content`; chunking/embedding happen
+// server-side using the collection's pinned embedding model.
+export interface IngestDocumentRequest {
+  filename: string
+  content: string
+}
+
+export interface DocumentSummary {
+  document_id: string
+  filename: string
+  chunk_count: number
+  created_at: string | null
+}
+
+export interface DocumentsResponse {
+  documents: DocumentSummary[]
+}
+
+export interface DocumentChunk {
+  chunk_id: string
+  chunk_index: number
+  text: string
+}
+
+export interface DocumentChunksResponse {
+  document_id: string
+  chunks: DocumentChunk[]
+}
+
 // Vector collections (Qdrant). Field names use snake_case to match the backend
 // CreateQdrantCollectionRequest wire format.
 export type VectorDistance = 'Cosine' | 'Dot' | 'Euclid' | 'Manhattan'
@@ -93,6 +135,7 @@ export interface CollectionDetail {
   sparse_vectors: Record<string, SparseVectorDetail>
   indexing_threshold: number | null
   default_segment_number: number | null
+  embedding_model: string | null
 }
 
 export interface DenseVectorUpdateConfig {

@@ -34,3 +34,4 @@ qdrant_data/
 # Claude Code
 CLAUDE.md
 .claude/
+docs/

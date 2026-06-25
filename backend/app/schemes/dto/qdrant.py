@@ -29,6 +29,8 @@ class CollectionDetail:
     sparse_vectors: dict[str, SparseVectorDetail]
     indexing_threshold: int | None
     default_segment_number: int | None
+    # collection_meta에 고정된 임베딩 모델(이 흐름으로 생성되지 않은 컬렉션은 None).
+    embedding_model: str | None = None
 
 
 @dataclass(slots=True)

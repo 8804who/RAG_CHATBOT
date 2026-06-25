@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 
+import { useEmbeddingModels } from '../../hooks/useModels'
 import type {
   CreateCollectionRequest,
   SparseModifier,
@@ -24,21 +25,29 @@ export default function CreateCollectionForm({
   busy,
   error,
 }: CreateCollectionFormProps) {
+  const { data: models, isLoading: modelsLoading } = useEmbeddingModels()
   const [name, setName] = useState('')
-  const [modelName, setModelName] = useState('BAAI/bge-m3')
-  const [dimension, setDimension] = useState(1024)
+  // Explicit user choice overrides the default; otherwise fall back to the first
+  // registered model. Derived during render so no setState-in-effect is needed.
+  const [modelOverride, setModelOverride] = useState('')
   const [distance, setDistance] = useState<VectorDistance>('Cosine')
   const [denseOnDisk, setDenseOnDisk] = useState(false)
   const [enableSparse, setEnableSparse] = useState(true)
   const [modifier, setModifier] = useState<SparseModifier>('idf')
   const [onDiskPayload, setOnDiskPayload] = useState(true)
 
+  const modelName = modelOverride || models?.[0]?.name || ''
+  // The embedding dimension is fixed by the chosen model (the backend rejects a
+  // dense vector size that differs from the model dimension).
+  const selectedModel = models?.find((m) => m.name === modelName)
+  const dimension = selectedModel?.dimension ?? 0
+
   const trimmedName = name.trim()
-  const canSubmit = trimmedName.length > 0 && dimension > 0 && !busy
+  const canSubmit = trimmedName.length > 0 && !!selectedModel && !busy
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!canSubmit) return
+    if (!canSubmit || !selectedModel) return
 
     const request: CreateCollectionRequest = {
       collection_name: trimmedName,
@@ -49,7 +58,11 @@ export default function CreateCollectionForm({
       sparse_vectors: enableSparse
         ? { sparse: { modifier, on_disk: false } }
         : {},
-      embedding_model: { name: modelName.trim(), dimension, normalize: true },
+      embedding_model: {
+        name: selectedModel.name,
+        dimension: selectedModel.dimension,
+        normalize: true,
+      },
       on_disk_payload: onDiskPayload,
     }
     onSubmit(request)
@@ -83,32 +96,33 @@ export default function CreateCollectionForm({
         />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="model-name" className={labelClass}>
-            Embedding model
-          </label>
-          <input
-            id="model-name"
-            type="text"
-            value={modelName}
-            onChange={(e) => setModelName(e.target.value)}
-            className={fieldClass}
-          />
-        </div>
-        <div>
-          <label htmlFor="dimension" className={labelClass}>
-            Dimension
-          </label>
-          <input
-            id="dimension"
-            type="number"
-            min={1}
-            value={dimension}
-            onChange={(e) => setDimension(Number(e.target.value))}
-            className={fieldClass}
-          />
-        </div>
+      <div>
+        <label htmlFor="model-name" className={labelClass}>
+          Embedding model
+        </label>
+        <select
+          id="model-name"
+          value={modelName}
+          onChange={(e) => setModelOverride(e.target.value)}
+          disabled={modelsLoading || !models || models.length === 0}
+          className={fieldClass}
+        >
+          {modelsLoading ? (
+            <option value="">Loading models…</option>
+          ) : !models || models.length === 0 ? (
+            <option value="">No models available</option>
+          ) : (
+            models.map((model) => (
+              <option key={model.name} value={model.name}>
+                {model.name} · {model.provider} · {model.dimension}d
+              </option>
+            ))
+          )}
+        </select>
+        <p className="mt-1 text-xs text-gray-500">
+          The vector dimension ({dimension || '—'}) is fixed by the chosen model
+          and pinned to the collection.
+        </p>
       </div>
 
       <div>

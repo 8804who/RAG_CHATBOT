@@ -8,8 +8,10 @@ dependencies = [
     "asyncpg>=0.31.0",
     "authlib>=1.7.2",
     "fastapi[standard]>=0.136.3",
+    "fastembed>=0.7.0",
     "greenlet>=3.5.1",
     "itsdangerous>=2.2.0",
+    "openai>=1.0.0",
     "pydantic-settings>=2.14.1",
     "pytest>=9.0.3",
     "qdrant-client>=1.18.0",
@@ -27,4 +29,4 @@ dev = [
 # backend/app is the import root (see CLAUDE.md); make root-relative imports
 # like `from core.config import config` resolve when running pytest from here.
 pythonpath = ["."]
-testpaths = ["tests"]
+testpaths = ["../tests"]

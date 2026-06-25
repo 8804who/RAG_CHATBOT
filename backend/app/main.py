@@ -8,7 +8,11 @@ from starlette.middleware.sessions import SessionMiddleware
 from api.v1.router import router as api_v1_router
 from core.config import config
 from dependencies.clients import get_qdrant_client, get_redis_client
-from dependencies.services import get_google_oauth2_service
+from dependencies.services import (
+    get_embedding_registry,
+    get_google_oauth2_service,
+    get_sparse_encoder,
+)
 from dependencies.db import engine
 from exceptions.handler import register_exception_handlers
 from models import Base
@@ -20,6 +24,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await conn.run_sync(Base.metadata.create_all)
     get_qdrant_client()
     get_redis_client()
+    get_embedding_registry()
+    get_sparse_encoder()
     yield
     await get_qdrant_client().close()
     await get_redis_client().close()

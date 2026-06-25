@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from schemes.dto.qdrant import CollectionDetail, CollectionSummary
 from schemes.requests import (
     CreateQdrantCollectionRequest,
@@ -17,7 +19,9 @@ class VectorDBService(ABC):
         pass
 
     @abstractmethod
-    async def create_collections(self, collection_info: CreateQdrantCollectionRequest):
+    async def create_collections(
+        self, db: AsyncSession, collection_info: CreateQdrantCollectionRequest
+    ):
         pass
 
     @abstractmethod
@@ -27,5 +31,5 @@ class VectorDBService(ABC):
         pass
 
     @abstractmethod
-    async def delete_collection(self, collection_name: str):
+    async def delete_collection(self, db: AsyncSession, collection_name: str):
         pass

@@ -76,3 +76,9 @@ class UpdateQdrantCollectionRequest(BaseModel):
         if not any([self.dense_vectors, self.sparse_vectors, self.optimizers_config]):
             raise ValueError("수정할 항목을 최소 하나 이상 지정해야 합니다")
         return self
+
+
+### Documents (ingestion)
+class IngestDocumentRequest(BaseModel):
+    filename: str = Field(..., min_length=1, max_length=255)
+    content: str = Field(..., min_length=1)

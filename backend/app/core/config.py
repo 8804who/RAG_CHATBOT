@@ -19,6 +19,9 @@ class Config(BaseSettings):
     QDRANT_URL: str
     QDRANT_API_KEY: str | None = None
 
+    # OPENAI
+    OPENAI_API_KEY: str | None = None
+
     # Google OAuth
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
