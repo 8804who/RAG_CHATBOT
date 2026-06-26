@@ -2,7 +2,11 @@ from functools import lru_cache
 
 from clients import QdrantDBClient
 from dependencies.clients import get_qdrant_client
-from repositories import AuthRepository, CollectionMetaRepository
+from repositories import (
+    AuthRepository,
+    CollectionMetadataRepository,
+    LogRepository,
+)
 from repositories.vector_db import QdrantRepository
 
 
@@ -18,5 +22,10 @@ def get_qdrant_repository() -> QdrantRepository:
 
 
 @lru_cache
-def get_collection_meta_repository() -> CollectionMetaRepository:
-    return CollectionMetaRepository()
+def get_collection_meta_repository() -> CollectionMetadataRepository:
+    return CollectionMetadataRepository()
+
+
+@lru_cache
+def get_log_repository() -> LogRepository:
+    return LogRepository()

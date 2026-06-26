@@ -1,4 +1,5 @@
 from repositories.auth_repository import AuthRepository
-from repositories.collection_meta_repository import CollectionMetaRepository
+from repositories.collection_metadata_repository import CollectionMetadataRepository
+from repositories.log_repository import LogRepository
 
-__all__ = ["AuthRepository", "CollectionMetaRepository"]
+__all__ = ["AuthRepository", "CollectionMetadataRepository", "LogRepository"]
