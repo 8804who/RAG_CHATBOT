@@ -1,3 +1,5 @@
+from typing import List
+
 from qdrant_client import models
 
 from clients import QdrantDBClient
@@ -31,12 +33,12 @@ class QdrantRepository(VectorDBRepository):
     def __init__(self, qdrant_client: QdrantDBClient):
         self._qdrant_client = qdrant_client
 
-    async def get_collections(self) -> list[CollectionSummary]:
+    async def get_collections(self) -> List[CollectionSummary]:
         """
         Qdrant collection 목록 조회
 
         Returns:
-            list[CollectionSummary]: collection 이름 목록
+            List[CollectionSummary]: collection 이름 목록
         """
         result = await self._qdrant_client.client.get_collections()
         return [CollectionSummary(name=c.name) for c in result.collections]
@@ -51,7 +53,7 @@ class QdrantRepository(VectorDBRepository):
         Returns:
             CollectionDetail: vector 구성/최적화 설정을 담은 상세 정보
         """
-        await self._ensure_exists(collection_name)
+        await self._check_collection_exist(collection_name)
         info = await self._qdrant_client.client.get_collection(collection_name)
 
         params = info.config.params
@@ -140,7 +142,7 @@ class QdrantRepository(VectorDBRepository):
         Returns:
             bool: 갱신 성공 여부
         """
-        await self._ensure_exists(collection_name)
+        await self._check_collection_exist(collection_name)
 
         kwargs: dict = {}
 
@@ -191,23 +193,23 @@ class QdrantRepository(VectorDBRepository):
         Returns:
             bool: 삭제 성공 여부
         """
-        await self._ensure_exists(collection_name)
+        await self._check_collection_exist(collection_name)
         result = await self._qdrant_client.client.delete_collection(
             collection_name=collection_name
         )
         return result
 
     async def upsert_points(
-        self, collection_name: str, points: list[IngestPoint]
+        self, collection_name: str, points: List[IngestPoint]
     ) -> None:
         """청크를 컬렉션에 upsert(같은 id 존재 시 덮어쓰기)
 
         Parameters:
             collection_name(str): collection 이름
-            points(list[IngestPoint]): dense(+sparse)·payload를 담은 포인트들
+            points(List[IngestPoint]): dense(+sparse)·payload를 담은 포인트들
         """
-        await self._ensure_exists(collection_name)
-        structs: list[models.PointStruct] = []
+        await self._check_collection_exist(collection_name)
+        structs: List[models.PointStruct] = []
         for point in points:
             vector: dict = {point.dense_vector_name: point.dense}
             if point.sparse is not None and point.sparse_vector_name is not None:
@@ -223,7 +225,7 @@ class QdrantRepository(VectorDBRepository):
 
     async def scroll_points(
         self, collection_name: str, document_id: str | None = None
-    ) -> list[RawPoint]:
+    ) -> List[RawPoint]:
         """
         컬렉션 포인트 목록 조회
 
@@ -232,9 +234,9 @@ class QdrantRepository(VectorDBRepository):
             document_id(str | None): 지정 시 해당 문서의 청크만 조회
 
         Returns:
-            list[RawPoint]: id + payload를 담은 포인트 목록
+            List[RawPoint]: id + payload를 담은 포인트 목록
         """
-        await self._ensure_exists(collection_name)
+        await self._check_collection_exist(collection_name)
         scroll_filter = None
         if document_id is not None:
             scroll_filter = models.Filter(
@@ -246,7 +248,7 @@ class QdrantRepository(VectorDBRepository):
                 ]
             )
 
-        results: list[RawPoint] = []
+        results: List[RawPoint] = []
         offset = None
         while True:
             points, offset = await self._qdrant_client.client.scroll(
@@ -273,7 +275,7 @@ class QdrantRepository(VectorDBRepository):
             collection_name(str): 대상 컬렉션
             document_id(str): 삭제할 문서 id
         """
-        await self._ensure_exists(collection_name)
+        await self._check_collection_exist(collection_name)
         await self._qdrant_client.client.delete(
             collection_name=collection_name,
             points_selector=models.FilterSelector(
@@ -288,12 +290,12 @@ class QdrantRepository(VectorDBRepository):
             ),
         )
 
-    async def _ensure_exists(self, collection_name: str) -> None:
+    async def _check_collection_exist(self, collection_name: str) -> None:
         """
         collection 존재 여부 확인
         """
         if not await self._qdrant_client.client.collection_exists(collection_name):
             raise CollectionNotFoundError(
                 message=f"collection '{collection_name}' not found",
-                code_path="qdrant_repository-_ensure_exists-error",
+                code_path="qdrant_repository-_check_collection_exist-error",
             )

@@ -3,6 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from dependencies.db import get_db_session
 from dependencies.services import get_qdrant_service
+from dependencies.auth import get_current_user
+from models.user import User
 from schemes.requests import (
     CreateQdrantCollectionRequest,
     UpdateQdrantCollectionRequest,
@@ -16,6 +18,7 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 @router.get("", response_model=CollectionsResponse)
 async def get_collections(
     qdrant_service: QdrantService = Depends(get_qdrant_service),
+    current_user: User = Depends(get_current_user),
 ) -> CollectionsResponse:
     """
     ### collection 목록 조회
@@ -34,6 +37,7 @@ async def get_collection(
     collection_name: str = Path(..., min_length=1),
     qdrant_service: QdrantService = Depends(get_qdrant_service),
     db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
     """
     ### collection 단건 상세 조회
@@ -64,6 +68,7 @@ async def create_collection(
     collection_info: CreateQdrantCollectionRequest,
     qdrant_service: QdrantService = Depends(get_qdrant_service),
     db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
     """
     ### collection 생성
@@ -95,6 +100,7 @@ async def update_collection(
     collection_info: UpdateQdrantCollectionRequest,
     collection_name: str = Path(..., min_length=1),
     qdrant_service: QdrantService = Depends(get_qdrant_service),
+    current_user: User = Depends(get_current_user),
 ):
     """
     ### collection 수정 가능한 설정 갱신
@@ -125,6 +131,7 @@ async def delete_collection(
     collection_name: str = Path(..., min_length=1),
     qdrant_service: QdrantService = Depends(get_qdrant_service),
     db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ):
     """
     ### collection 삭제
@@ -138,6 +145,4 @@ async def delete_collection(
     Error Response:
         삭제할 collection이 존재하지 않을 경우: (404 Not Found, "해당 collection이 존재하지 않습니다")
     """
-    await qdrant_service.delete_collection(
-        db=db, collection_name=collection_name
-    )
+    await qdrant_service.delete_collection(db=db, collection_name=collection_name)

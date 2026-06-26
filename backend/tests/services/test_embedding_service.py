@@ -16,9 +16,7 @@ def _make_service(
     """가짜 dense client·sparse encoder로 EmbeddingService 생성 헬퍼."""
     info = RegisteredEmbeddingModel(name=MODEL, provider="fastembed", dimension=3)
     registry = EmbeddingModelRegistry(catalog={MODEL: (info, dense_client)})
-    return EmbeddingService(
-        embedding_registry=registry, sparse_encoder=sparse_encoder
-    )
+    return EmbeddingService(embedding_registry=registry, sparse_encoder=sparse_encoder)
 
 
 def test_embed_documents_success_with_sparse():

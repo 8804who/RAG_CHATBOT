@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from exceptions.embedding import EmbeddingModelDimensionMismatchError
-from repositories import CollectionMetaRepository
+from repositories import CollectionMetadataRepository
 from repositories.vector_db import QdrantRepository
 from schemes.dto.qdrant import CollectionDetail, CollectionSummary
 from schemes.requests import (
@@ -17,7 +17,7 @@ class QdrantService(VectorDBService):
         self,
         qdrant_repository: QdrantRepository,
         embedding_registry: EmbeddingModelRegistry,
-        collection_meta_repository: CollectionMetaRepository,
+        collection_meta_repository: CollectionMetadataRepository,
     ):
         self._qdrant_repository = qdrant_repository
         self._embedding_registry = embedding_registry
@@ -47,7 +47,9 @@ class QdrantService(VectorDBService):
             CollectionDetail: collection 상세 정보
         """
         result = await self._qdrant_repository.get_collection(collection_name)
-        meta = await self._collection_meta_repository.get(db, collection_name)
+        meta = await self._collection_meta_repository.get_collection_metadata(
+            db, collection_name
+        )
         if meta is not None:
             result.embedding_model = meta.embedding_model
         return result
@@ -78,7 +80,7 @@ class QdrantService(VectorDBService):
             )
 
         result = await self._qdrant_repository.create_collections(collection_info)
-        await self._collection_meta_repository.create(
+        await self._collection_meta_repository.create_collection_metadata(
             db,
             collection_name=collection_info.collection_name,
             embedding_model=model.name,
@@ -113,4 +115,6 @@ class QdrantService(VectorDBService):
             collection_name(str): 삭제할 collection 이름
         """
         await self._qdrant_repository.delete_collection(collection_name)
-        await self._collection_meta_repository.delete(db, collection_name)
+        await self._collection_meta_repository.delete_collection_metadata(
+            db, collection_name
+        )

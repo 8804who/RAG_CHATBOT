@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, Path, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from dependencies.auth import get_current_user
 from dependencies.db import get_db_session
 from dependencies.services import get_document_service
+from models import User
 from schemes.requests import IngestDocumentRequest
 from schemes.responses import (
     DocumentChunksResponse,
@@ -24,14 +26,12 @@ async def ingest_document(
     collection_name: str = Path(..., min_length=1),
     document_service: DocumentService = Depends(get_document_service),
     db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentSummaryResponse:
     """
-    ### 문서 인제스트(청킹 → 임베딩 → 컬렉션 적재)
+    ### 문서 임베딩
 
-    업로드한 문서 텍스트를 컬렉션에 고정된 임베딩 모델로 임베딩해 Qdrant에
-    적재한다(동기 처리). 어떤 모델을 쓸지는 컬렉션 생성 시 저장된 매핑을
-    강제 사용한다.
-
+    업로드한 문서 임베딩 후 Qdrant에 저장
     Path Variables:
         collection_name(str): 적재 대상 collection 이름
 
@@ -56,6 +56,8 @@ async def ingest_document(
         collection_name=collection_name,
         filename=body.filename,
         content=body.content,
+        requester_id=current_user.id,
+        requester_email=current_user.email,
     )
 
 
@@ -63,11 +65,12 @@ async def ingest_document(
 async def list_documents(
     collection_name: str = Path(..., min_length=1),
     document_service: DocumentService = Depends(get_document_service),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentsResponse:
     """
     ### 컬렉션 내부 문서 목록 조회
 
-    적재된 청크를 document_id로 묶어 문서 단위로 요약한다.
+    document_id 별 문서 목록 조회
 
     Path Variables:
         collection_name(str): 조회 대상 collection 이름
@@ -94,6 +97,7 @@ async def get_document_chunks(
     collection_name: str = Path(..., min_length=1),
     document_id: str = Path(..., min_length=1),
     document_service: DocumentService = Depends(get_document_service),
+    current_user: User = Depends(get_current_user),
 ) -> DocumentChunksResponse:
     """
     ### 문서 청크 목록 조회
@@ -118,12 +122,15 @@ async def get_document_chunks(
     return DocumentChunksResponse(document_id=document_id, chunks=chunks)
 
 
-@router.delete("/{collection_name}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{collection_name}/documents/{document_id}", status_code=status.HTTP_204_NO_CONTENT
+)
 async def delete_document(
     collection_name: str = Path(..., min_length=1),
     document_id: str = Path(..., min_length=1),
     document_service: DocumentService = Depends(get_document_service),
-) -> bool:
+    current_user: User = Depends(get_current_user),
+) -> None:
     """
     ### 문서 삭제
 

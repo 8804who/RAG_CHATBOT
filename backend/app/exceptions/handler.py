@@ -8,9 +8,7 @@ from exceptions.base import AppException
 logger = logging.getLogger(__name__)
 
 
-async def app_exception_handler(
-    request: Request, exc: AppException
-) -> JSONResponse:
+async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     """
     커스텀 예외 처리
 

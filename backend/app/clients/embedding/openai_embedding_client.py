@@ -27,9 +27,13 @@ class OpenAIEmbeddingClient(EmbeddingClient):
         return self._dimension
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        response = await self._client.embeddings.create(model=self._model_name, input=texts)
+        response = await self._client.embeddings.create(
+            model=self._model_name, input=texts
+        )
         return [item.embedding for item in response.data]
 
     async def embed_query(self, text: str) -> list[float]:
-        response = await self.client.embeddings.create(model=self._model_name, input=[text])
+        response = await self.client.embeddings.create(
+            model=self._model_name, input=[text]
+        )
         return response.data[0].embedding

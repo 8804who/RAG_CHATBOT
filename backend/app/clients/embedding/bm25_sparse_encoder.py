@@ -5,6 +5,7 @@ from fastembed import SparseTextEmbedding
 from schemes.dto.embedding import SparseVector
 from clients.embedding.sparse_encoder import SparseEncoder
 
+
 class BM25SparseEncoder(SparseEncoder):
     """
     BM25 기반 Sparse 인코더
