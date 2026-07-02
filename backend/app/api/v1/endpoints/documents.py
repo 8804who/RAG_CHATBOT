@@ -129,6 +129,7 @@ async def delete_document(
     collection_name: str = Path(..., min_length=1),
     document_id: str = Path(..., min_length=1),
     document_service: DocumentService = Depends(get_document_service),
+    db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
 ) -> None:
     """
@@ -146,4 +147,10 @@ async def delete_document(
     Error Response:
         컬렉션이 존재하지 않을 경우: (404 Not Found, "해당 collection이 존재하지 않습니다")
     """
-    await document_service.delete_document(collection_name, document_id)
+    await document_service.delete_document(
+        db=db,
+        collection_name=collection_name,
+        document_id=document_id,
+        requester_id=current_user.id,
+        requester_email=current_user.email,
+    )

@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
@@ -6,18 +7,28 @@ from sqlalchemy.orm import Mapped, mapped_column
 from models.base import Base
 
 
-class IngestLog(Base):
-    """
-    문서 인제스트 이력
+class DocumentOperation(str, Enum):
+    """문서 관리 요청 타입(삽입/수정/삭제)."""
 
-    누가(요청자) 언제(시작·종료) 어떤 컬렉션에 어떤 파일을 적재했는지 기록.
+    INSERT = "insert"
+    UPDATE = "update"
+    DELETE = "delete"
+
+
+class DocumentManageLog(Base):
+    """
+    문서 관리 이력
+
+    누가(요청자) 언제(시작·종료) 어떤 컬렉션의 어떤 파일에 대해 어떤 요청 타입
+    (삽입·수정·삭제)을 수행했는지 기록.
     """
 
-    __tablename__ = "ingest_logs"
+    __tablename__ = "document_manage_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    operation: Mapped[str] = mapped_column(String(16), index=True)
     collection_name: Mapped[str] = mapped_column(String(255), index=True)
-    filename: Mapped[str] = mapped_column(String(512))
+    filename: Mapped[str | None] = mapped_column(String(512))
     requester_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), index=True
     )

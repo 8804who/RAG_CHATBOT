@@ -9,6 +9,7 @@ from exceptions.document import (
     DenseVectorNotConfiguredError,
     EmptyDocumentError,
 )
+from models import DocumentOperation
 from repositories import CollectionMetadataRepository, LogRepository
 from repositories.vector_db import QdrantRepository
 from schemes.dto.document import DocumentChunk, DocumentSummary, IngestPoint
@@ -79,8 +80,9 @@ class DocumentService:
                 filename,
                 requester_email,
             )
-            await self._log_repository.create_ingest_log(
+            await self._log_repository.create_document_manage_log(
                 db,
+                operation=DocumentOperation.INSERT,
                 collection_name=collection_name,
                 filename=filename,
                 requester_id=requester_id,
@@ -99,8 +101,9 @@ class DocumentService:
             summary.document_id,
             summary.chunk_count,
         )
-        await self._log_repository.create_ingest_log(
+        await self._log_repository.create_document_manage_log(
             db,
+            operation=DocumentOperation.INSERT,
             collection_name=collection_name,
             filename=filename,
             requester_id=requester_id,
@@ -260,12 +263,72 @@ class DocumentService:
         ]
         return sorted(chunks, key=lambda chunk: chunk.chunk_index)
 
-    async def delete_document(self, collection_name: str, document_id: str) -> None:
+    async def delete_document(
+        self,
+        db: AsyncSession,
+        collection_name: str,
+        document_id: str,
+        requester_id: int | None = None,
+        requester_email: str | None = None,
+    ) -> None:
         """
         컬렉션에서 문서 삭제.
 
+        삭제 요청을 문서 관리 이력으로 DB에 기록한다(성공·실패 모두 기록).
+
         Parameters:
+            db(AsyncSession): DB 세션(이력 저장용)
             collection_name(str): 대상 컬렉션
             document_id(str): 삭제할 문서 id
+            requester_id(int | None): 요청자 user id
+            requester_email(str | None): 요청자 이메일
         """
-        await self._qdrant_repository.delete_by_document(collection_name, document_id)
+        started_at = datetime.now(timezone.utc)
+        logger.info(
+            "delete 시작: collection=%s, document_id=%s, requester=%s",
+            collection_name,
+            document_id,
+            requester_email,
+        )
+
+        try:
+            await self._qdrant_repository.delete_by_document(
+                collection_name, document_id
+            )
+        except Exception:
+            logger.exception(
+                "delete 실패: collection=%s, document_id=%s, requester=%s",
+                collection_name,
+                document_id,
+                requester_email,
+            )
+            await self._log_repository.create_document_manage_log(
+                db,
+                operation=DocumentOperation.DELETE,
+                collection_name=collection_name,
+                requester_id=requester_id,
+                requester_email=requester_email,
+                status="failed",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                document_id=document_id,
+            )
+            raise
+
+        finished_at = datetime.now(timezone.utc)
+        logger.info(
+            "delete 완료: collection=%s, document_id=%s",
+            collection_name,
+            document_id,
+        )
+        await self._log_repository.create_document_manage_log(
+            db,
+            operation=DocumentOperation.DELETE,
+            collection_name=collection_name,
+            requester_id=requester_id,
+            requester_email=requester_email,
+            status="success",
+            started_at=started_at,
+            finished_at=finished_at,
+            document_id=document_id,
+        )
