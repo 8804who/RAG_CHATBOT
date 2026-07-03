@@ -28,3 +28,12 @@ class DenseVectorNotConfiguredError(AppException):
 
     status_code = status.HTTP_400_BAD_REQUEST
     response_message = "컬렉션에 Dense Vector가 구성되어 있지 않습니다"
+
+
+class DocumentNotFoundError(AppException):
+    """
+    요청한 document_id의 문서(상태 레코드)가 없는 경우
+    """
+
+    status_code = status.HTTP_404_NOT_FOUND
+    response_message = "해당 문서가 존재하지 않습니다"

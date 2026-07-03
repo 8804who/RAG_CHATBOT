@@ -4,12 +4,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from dependencies.auth import get_current_user
 from dependencies.db import get_db_session
 from dependencies.services import get_document_service
+from exceptions.document import DocumentNotFoundError
 from models import User
 from schemes.requests import IngestDocumentRequest
 from schemes.responses import (
     DocumentChunksResponse,
-    DocumentSummaryResponse,
+    DocumentStatusResponse,
     DocumentsResponse,
+    UploadAcceptedResponse,
 )
 from services.ingestion import DocumentService
 
@@ -18,8 +20,8 @@ router = APIRouter(prefix="/collections", tags=["documents"])
 
 @router.post(
     "/{collection_name}/documents",
-    status_code=status.HTTP_201_CREATED,
-    response_model=DocumentSummaryResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=UploadAcceptedResponse,
 )
 async def ingest_document(
     body: IngestDocumentRequest,
@@ -27,11 +29,10 @@ async def ingest_document(
     document_service: DocumentService = Depends(get_document_service),
     db: AsyncSession = Depends(get_db_session),
     current_user: User = Depends(get_current_user),
-) -> DocumentSummaryResponse:
+) -> UploadAcceptedResponse:
     """
-    ### 문서 임베딩
+    ### 문서 업로드 접수(비동기 인제스트)
 
-    업로드한 문서 임베딩 후 Qdrant에 저장
     Path Variables:
         collection_name(str): 적재 대상 collection 이름
 
@@ -42,16 +43,9 @@ async def ingest_document(
 
     Response Body:
         document_id: 생성된 문서 id
-        filename: 문서 파일명
-        chunk_count: 생성된 청크 수
-        created_at: 생성 시각
-
-    Error Response:
-        컬렉션이 존재하지 않을 경우: (404 Not Found, "해당 collection이 존재하지 않습니다")
-        컬렉션의 임베딩 모델 매핑이 없을 경우: (400 Bad Request, "컬렉션의 임베딩 모델 정보를 찾을 수 없습니다")
-        문서 내용이 비어 있을 경우: (400 Bad Request, "문서 내용이 비어 있습니다")
+        status: 접수 상태(UPLOADED)
     """
-    return await document_service.ingest(
+    return await document_service.accept_upload(
         db=db,
         collection_name=collection_name,
         filename=body.filename,
@@ -59,6 +53,46 @@ async def ingest_document(
         requester_id=current_user.id,
         requester_email=current_user.email,
     )
+
+
+@router.get(
+    "/{collection_name}/documents/{document_id}/status",
+    response_model=DocumentStatusResponse,
+)
+async def get_document_status(
+    collection_name: str = Path(..., min_length=1),
+    document_id: str = Path(..., min_length=1),
+    document_service: DocumentService = Depends(get_document_service),
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> DocumentStatusResponse:
+    """
+    ### 문서 인제스트 진행 상태 조회
+
+    프론트가 업로드 후 진행률/완료/실패 상태 조회
+
+    Path Variables:
+        collection_name(str): 대상 collection 이름
+        document_id(str): 조회할 문서 id
+
+    Response Body:
+        document_id: 문서 id
+        status: UPLOADED | PARSING | EMBEDDING | INDEXED | FAILED
+        filename: 문서 파일명
+        total_chunks: 총 청크 수(파싱 후 확정)
+        indexed_chunks: 적재 완료 청크 수
+        error: 실패 사유(실패 시)
+
+    Error Response:
+        문서 id가 존재하지 않을 경우: (404 Not Found, "해당 문서가 존재하지 않습니다")
+    """
+    record = await document_service.get_status(db, document_id)
+    if record is None:
+        raise DocumentNotFoundError(
+            message=f"document '{document_id}' not found",
+            code_path="documents-get_document_status-error",
+        )
+    return record
 
 
 @router.get("/{collection_name}/documents", response_model=DocumentsResponse)

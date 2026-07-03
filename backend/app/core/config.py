@@ -22,6 +22,10 @@ class Config(BaseSettings):
     # OPENAI
     OPENAI_API_KEY: str | None = None
 
+    # Kafka
+    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
+    INGEST_MAX_RETRIES: int = 3
+
     # Google OAuth
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str

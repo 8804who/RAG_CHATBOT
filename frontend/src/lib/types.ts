@@ -46,10 +46,36 @@ export interface AvailableModelsResponse {
 
 // Document ingestion (POST /collections/{name}/documents). The frontend reads a
 // text file's contents and sends them as `content`; chunking/embedding happen
-// server-side using the collection's pinned embedding model.
+// server-side (asynchronously, via Kafka workers) using the collection's pinned
+// embedding model.
 export interface IngestDocumentRequest {
   filename: string
   content: string
+}
+
+// Async ingest progress (documents table). Upload returns UPLOADED (202) and the
+// UI polls GET .../status until INDEXED or FAILED.
+export type DocumentIngestStatus =
+  | 'UPLOADED'
+  | 'PARSING'
+  | 'EMBEDDING'
+  | 'INDEXED'
+  | 'FAILED'
+
+// POST /collections/{name}/documents → 202 Accepted.
+export interface UploadAcceptedResponse {
+  document_id: string
+  status: DocumentIngestStatus
+}
+
+// GET /collections/{name}/documents/{id}/status.
+export interface DocumentStatusResponse {
+  document_id: string
+  status: DocumentIngestStatus
+  filename: string
+  total_chunks: number | null
+  indexed_chunks: number
+  error: string | null
 }
 
 export interface DocumentSummary {

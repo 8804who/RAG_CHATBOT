@@ -1,97 +1,80 @@
 import asyncio
 from unittest.mock import AsyncMock
 
-import pytest
-
-from exceptions.document import CollectionMetaNotFoundError, EmptyDocumentError
 from schemes.dto.document import RawPoint
-from schemes.dto.embedding import EmbeddingResult, SparseVector
-from schemes.dto.qdrant import CollectionDetail, DenseVectorDetail, SparseVectorDetail
+from schemes.events import TOPIC_DOCUMENTS_UPLOADED, DocumentUploadedEvent
 from services.ingestion.document_service import DocumentService
 
-MODEL = "BAAI/bge-m3"
 
-
-def _collection_detail(with_sparse: bool = True) -> CollectionDetail:
-    """dense(+sparse) vector 이름을 가진 CollectionDetail 헬퍼."""
-    return CollectionDetail(
-        name="docs",
-        status="green",
-        points_count=0,
-        dense_vectors={
-            "dense": DenseVectorDetail(size=3, distance="Cosine", on_disk=False)
-        },
-        sparse_vectors=(
-            {"sparse": SparseVectorDetail(modifier="idf", on_disk=False)}
-            if with_sparse
-            else {}
-        ),
-        indexing_threshold=None,
-        default_segment_number=None,
-    )
-
-
-def _make_service() -> tuple[DocumentService, AsyncMock, AsyncMock, AsyncMock]:
-    """가짜 repo/embedding_service/meta_repo로 DocumentService 생성 헬퍼."""
+def _make_service() -> tuple[DocumentService, AsyncMock, AsyncMock, AsyncMock, AsyncMock]:
+    """가짜 repo/producer/status_repo/log_repo로 DocumentService 생성 헬퍼."""
     qdrant_repo = AsyncMock()
-    embedding_service = AsyncMock()
-    meta_repo = AsyncMock()
+    kafka_producer = AsyncMock()
+    status_repo = AsyncMock()
+    log_repo = AsyncMock()
     service = DocumentService(
         qdrant_repository=qdrant_repo,
-        embedding_service=embedding_service,
-        collection_meta_repository=meta_repo,
+        kafka_producer=kafka_producer,
+        document_status_repository=status_repo,
+        log_repository=log_repo,
     )
-    return service, qdrant_repo, embedding_service, meta_repo
+    return service, qdrant_repo, kafka_producer, status_repo, log_repo
 
 
-def test_ingest_success_with_sparse_collection():
-    # 메타의 임베딩 모델로 청크를 임베딩하고 dense+sparse 포인트를 upsert한다.
-    service, qdrant_repo, embedding_service, meta_repo = _make_service()
-    meta_repo.get.return_value = type(
-        "Meta", (), {"embedding_model": MODEL, "dimension": 3}
-    )()
-    qdrant_repo.get_collection.return_value = _collection_detail(with_sparse=True)
-    embedding_service.embed_documents.return_value = [
-        EmbeddingResult(dense=[1.0, 2.0, 3.0], sparse=SparseVector([1], [1.0])),
-    ]
+def test_accept_upload_success_with_publish_and_record():
+    # 상태 레코드를 UPLOADED로 생성하고 documents.uploaded에 원문을 발행한다.
+    service, _, kafka_producer, status_repo, _ = _make_service()
 
-    result = asyncio.run(service.ingest(AsyncMock(), "docs", "a.txt", "hello world"))
+    result = asyncio.run(
+        service.accept_upload(
+            AsyncMock(),
+            "docs",
+            "a.txt",
+            "hello world",
+            requester_id=7,
+            requester_email="u@e.com",
+        )
+    )
 
-    assert result.filename == "a.txt"
-    assert result.chunk_count == 1
-    embedding_service.embed_documents.assert_awaited_once()
-    # 컬렉션에 고정된 모델 이름이 임베딩에 전달돼야 한다.
-    assert embedding_service.embed_documents.await_args.args[0] == MODEL
-    qdrant_repo.upsert_points.assert_awaited_once()
-    points = qdrant_repo.upsert_points.await_args.args[1]
-    assert len(points) == 1
-    assert points[0].dense_vector_name == "dense"
-    assert points[0].sparse_vector_name == "sparse"
-    assert points[0].payload["document_id"] == result.document_id
+    # 상태 레코드 생성이 호출됐고, document_id가 이벤트/레코드로 일관되게 흐른다.
+    status_repo.create.assert_awaited_once()
+    document_id = status_repo.create.await_args.kwargs["document_id"]
+
+    kafka_producer.publish.assert_awaited_once()
+    topic = kafka_producer.publish.await_args.args[0]
+    assert topic == TOPIC_DOCUMENTS_UPLOADED
+    assert kafka_producer.publish.await_args.kwargs["key"] == document_id
+
+    # 발행된 payload가 업로드 이벤트로 역직렬화되고 원문·요청자를 담는다.
+    value = kafka_producer.publish.await_args.kwargs["value"]
+    event = DocumentUploadedEvent.from_bytes(value)
+    assert event.document_id == document_id
+    assert event.collection_name == "docs"
+    assert event.content == "hello world"
+    assert event.requester_id == 7
+    # accept_upload는 임베딩을 하지 않고 상태 레코드를 반환한다.
+    assert result is status_repo.create.return_value
 
 
-def test_ingest_failed_with_missing_meta():
-    # 임베딩 모델 매핑이 없으면 CollectionMetaNotFoundError를 발생시킨다.
-    service, _, _, meta_repo = _make_service()
-    meta_repo.get.return_value = None
+def test_delete_document_success_with_audit_log():
+    # Qdrant 청크와 상태 레코드를 지우고 성공 이력을 남긴다.
+    service, qdrant_repo, _, status_repo, log_repo = _make_service()
 
-    with pytest.raises(CollectionMetaNotFoundError):
-        asyncio.run(service.ingest(AsyncMock(), "docs", "a.txt", "hello"))
+    asyncio.run(
+        service.delete_document(
+            AsyncMock(), "docs", "doc1", requester_id=1, requester_email="u@e.com"
+        )
+    )
 
-
-def test_ingest_failed_with_empty_content():
-    # 청크가 생성되지 않는 빈 내용은 EmptyDocumentError를 발생시킨다.
-    service, qdrant_repo, _, meta_repo = _make_service()
-    meta_repo.get.return_value = type("Meta", (), {"embedding_model": MODEL})()
-    qdrant_repo.get_collection.return_value = _collection_detail()
-
-    with pytest.raises(EmptyDocumentError):
-        asyncio.run(service.ingest(AsyncMock(), "docs", "a.txt", "   "))
+    qdrant_repo.delete_by_document.assert_awaited_once_with("docs", "doc1")
+    status_repo.delete.assert_awaited_once()
+    log_repo.create_document_manage_log.assert_awaited_once()
+    assert log_repo.create_document_manage_log.await_args.kwargs["status"] == "success"
 
 
 def test_list_documents_success_with_grouping():
     # 같은 document_id의 청크는 하나의 문서로 묶이고 chunk_count가 합산된다.
-    service, qdrant_repo, _, _ = _make_service()
+    service, qdrant_repo, _, _, _ = _make_service()
     qdrant_repo.scroll_points.return_value = [
         RawPoint(
             id="p1",
@@ -130,7 +113,7 @@ def test_list_documents_success_with_grouping():
 
 def test_get_document_chunks_success_with_index_sort():
     # 청크는 chunk_index 오름차순으로 정렬돼 반환된다.
-    service, qdrant_repo, _, _ = _make_service()
+    service, qdrant_repo, _, _, _ = _make_service()
     qdrant_repo.scroll_points.return_value = [
         RawPoint(id="p2", payload={"chunk_index": 1, "text": "second"}),
         RawPoint(id="p1", payload={"chunk_index": 0, "text": "first"}),

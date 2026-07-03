@@ -4,39 +4,37 @@ from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from exceptions.document import (
-    CollectionMetaNotFoundError,
-    DenseVectorNotConfiguredError,
-    EmptyDocumentError,
-)
-from models import DocumentOperation
-from repositories import CollectionMetadataRepository, LogRepository
+from clients import KafkaProducerClient
+from models import DocumentOperation, DocumentRecord
+from repositories import DocumentStatusRepository, LogRepository
 from repositories.vector_db import QdrantRepository
-from schemes.dto.document import DocumentChunk, DocumentSummary, IngestPoint
-from services.embedding import EmbeddingService
-from utils.chunker import chunk_text
+from schemes.dto.document import DocumentChunk, DocumentSummary
+from schemes.events import TOPIC_DOCUMENTS_UPLOADED, DocumentUploadedEvent
 
 logger = logging.getLogger(__name__)
 
 
 class DocumentService:
     """
-    문서 인제스트, 컬렉션 내부 문서 조회 오케스트레이션 서비스
+    문서 업로드 접수(Kafka 요청) + 컬렉션 내부 문서 조회/삭제 오케스트레이션
+
+    업로드는 원문을 Kafka(documents.uploaded)로 발행만 하고 즉시 반환 
+    실제 청킹·임베딩·적재는 Parser/Embed/Index 워커에서 처리
     """
 
     def __init__(
         self,
         qdrant_repository: QdrantRepository,
-        embedding_service: EmbeddingService,
-        collection_meta_repository: CollectionMetadataRepository,
+        kafka_producer: KafkaProducerClient,
+        document_status_repository: DocumentStatusRepository,
         log_repository: LogRepository,
     ) -> None:
         self._qdrant_repository = qdrant_repository
-        self._embedding_service = embedding_service
-        self._collection_meta_repository = collection_meta_repository
+        self._kafka_producer = kafka_producer
+        self._document_status_repository = document_status_repository
         self._log_repository = log_repository
 
-    async def ingest(
+    async def accept_upload(
         self,
         db: AsyncSession,
         collection_name: str,
@@ -44,164 +42,65 @@ class DocumentService:
         content: str,
         requester_id: int | None = None,
         requester_email: str | None = None,
-    ) -> DocumentSummary:
+    ) -> DocumentRecord:
         """
-        문서를 청킹·임베딩 후 컬렉션 적재.
-
-        시작·종료 시각, 요청자, 파일명, 컬렉션 정보를 인제스트 이력으로 DB에 기록한다
-        (성공·실패 모두 기록).
+        문서 업로드 접수 후 인제스트 파이프라인에 비동기 요청
 
         Parameters:
-            db(AsyncSession): DB 세션(컬렉션 임베딩 모델 조회·이력 저장용)
+            db(AsyncSession): DB 세션(상태 레코드 생성용)
             collection_name(str): 적재 대상 컬렉션
-            filename(str): 문서 파일명(표시·그룹 라벨)
+            filename(str): 문서 파일명
             content(str): 문서 텍스트
             requester_id(int | None): 요청자 user id
             requester_email(str | None): 요청자 이메일
 
         Returns:
-            DocumentSummary: 생성된 문서 id·청크 수 요약
+            DocumentRecord: 생성된 문서 상태 레코드(document_id·status 보유)
         """
-        started_at = datetime.now(timezone.utc)
-        logger.info(
-            "ingest 시작: collection=%s, filename=%s, requester=%s, content_length=%d",
-            collection_name,
-            filename,
-            requester_email,
-            len(content),
-        )
-
-        try:
-            summary = await self._do_ingest(db, collection_name, filename, content)
-        except Exception:
-            logger.exception(
-                "ingest 실패: collection=%s, filename=%s, requester=%s",
-                collection_name,
-                filename,
-                requester_email,
-            )
-            await self._log_repository.create_document_manage_log(
-                db,
-                operation=DocumentOperation.INSERT,
-                collection_name=collection_name,
-                filename=filename,
-                requester_id=requester_id,
-                requester_email=requester_email,
-                status="failed",
-                started_at=started_at,
-                finished_at=datetime.now(timezone.utc),
-            )
-            raise
-
-        finished_at = datetime.now(timezone.utc)
-        logger.info(
-            "ingest 완료: collection=%s, filename=%s, document_id=%s, chunk_count=%d",
-            collection_name,
-            filename,
-            summary.document_id,
-            summary.chunk_count,
-        )
-        await self._log_repository.create_document_manage_log(
+        document_id = uuid4().hex
+        record = await self._document_status_repository.create(
             db,
-            operation=DocumentOperation.INSERT,
+            document_id=document_id,
             collection_name=collection_name,
             filename=filename,
             requester_id=requester_id,
             requester_email=requester_email,
-            status="success",
-            started_at=started_at,
-            finished_at=finished_at,
-            document_id=summary.document_id,
-            chunk_count=summary.chunk_count,
         )
-        return summary
 
-    async def _do_ingest(
-        self, db: AsyncSession, collection_name: str, filename: str, content: str
-    ) -> DocumentSummary:
+        event = DocumentUploadedEvent(
+            document_id=document_id,
+            collection_name=collection_name,
+            filename=filename,
+            content=content,
+            requester_id=requester_id,
+            requester_email=requester_email,
+        )
+        await self._kafka_producer.publish(
+            TOPIC_DOCUMENTS_UPLOADED, key=document_id, value=event.to_bytes()
+        )
+        logger.info(
+            "업로드 접수: collection=%s, filename=%s, document_id=%s, requester=%s",
+            collection_name,
+            filename,
+            document_id,
+            requester_email,
+        )
+        return record
+
+    async def get_status(
+        self, db: AsyncSession, document_id: str
+    ) -> DocumentRecord | None:
         """
-        문서 청킹·임베딩·적재 핵심 로직(이력 기록은 ingest가 담당).
+        문서 인제스트 진행 상태 조회
 
         Parameters:
-            db(AsyncSession): DB 세션(컬렉션 임베딩 모델 조회용)
-            collection_name(str): 적재 대상 컬렉션
-            filename(str): 문서 파일명
-            content(str): 문서 텍스트
+            db(AsyncSession): DB 세션
+            document_id(str): 조회할 문서 id
 
         Returns:
-            DocumentSummary: 생성된 문서 id·청크 수 요약
+            DocumentRecord | None: 상태 레코드(없으면 None)
         """
-        meta = await self._collection_meta_repository.get_collection_metadata(
-            db, collection_name
-        )
-        if meta is None:
-            raise CollectionMetaNotFoundError(
-                message=f"collection '{collection_name}' has no embedding mapping",
-                code_path="document_service-ingest-error",
-            )
-
-        # 컬렉션 존재 확인 + dense/sparse vector 이름 확보(적재 시 이름 일치 필요).
-        detail = await self._qdrant_repository.get_collection(collection_name)
-        dense_name = next(iter(detail.dense_vectors), None)
-        if dense_name is None:
-            raise DenseVectorNotConfiguredError(
-                message=f"collection '{collection_name}' has no dense vector",
-                code_path="document_service-ingest-error",
-            )
-        sparse_name = next(iter(detail.sparse_vectors), None)
-        with_sparse = sparse_name is not None
-
-        chunks = chunk_text(content)
-        if not chunks:
-            raise EmptyDocumentError(
-                message="document produced no chunks",
-                code_path="document_service-ingest-error",
-            )
-        logger.info(
-            "청킹 완료: collection=%s, filename=%s, chunk_count=%d",
-            collection_name,
-            filename,
-            len(chunks),
-        )
-
-        results = await self._embedding_service.embed_documents(
-            meta.embedding_model, chunks, with_sparse=with_sparse
-        )
-        logger.info(
-            "임베딩 완료: collection=%s, filename=%s, model=%s, with_sparse=%s",
-            collection_name,
-            filename,
-            meta.embedding_model,
-            with_sparse,
-        )
-
-        document_id = uuid4().hex
-        created_at = datetime.now(timezone.utc).isoformat()
-        points = [
-            IngestPoint(
-                id=uuid4().hex,
-                dense=result.dense,
-                payload={
-                    "document_id": document_id,
-                    "filename": filename,
-                    "chunk_index": index,
-                    "text": chunk,
-                    "created_at": created_at,
-                },
-                dense_vector_name=dense_name,
-                sparse=result.sparse if with_sparse else None,
-                sparse_vector_name=sparse_name,
-            )
-            for index, (chunk, result) in enumerate(zip(chunks, results, strict=True))
-        ]
-        await self._qdrant_repository.upsert_points(collection_name, points)
-
-        return DocumentSummary(
-            document_id=document_id,
-            filename=filename,
-            chunk_count=len(chunks),
-            created_at=created_at,
-        )
+        return await self._document_status_repository.get(db, document_id)
 
     async def list_documents(self, collection_name: str) -> list[DocumentSummary]:
         """
@@ -272,12 +171,10 @@ class DocumentService:
         requester_email: str | None = None,
     ) -> None:
         """
-        컬렉션에서 문서 삭제.
-
-        삭제 요청을 문서 관리 이력으로 DB에 기록한다(성공·실패 모두 기록).
+        컬렉션에서 문서 삭제(Qdrant 청크 + 상태 레코드 정리)
 
         Parameters:
-            db(AsyncSession): DB 세션(이력 저장용)
+            db(AsyncSession): DB 세션(상태 레코드 삭제·이력 저장용)
             collection_name(str): 대상 컬렉션
             document_id(str): 삭제할 문서 id
             requester_id(int | None): 요청자 user id
@@ -295,6 +192,7 @@ class DocumentService:
             await self._qdrant_repository.delete_by_document(
                 collection_name, document_id
             )
+            await self._document_status_repository.delete(db, document_id)
         except Exception:
             logger.exception(
                 "delete 실패: collection=%s, document_id=%s, requester=%s",
@@ -315,7 +213,6 @@ class DocumentService:
             )
             raise
 
-        finished_at = datetime.now(timezone.utc)
         logger.info(
             "delete 완료: collection=%s, document_id=%s",
             collection_name,
@@ -329,6 +226,6 @@ class DocumentService:
             requester_email=requester_email,
             status="success",
             started_at=started_at,
-            finished_at=finished_at,
+            finished_at=datetime.now(timezone.utc),
             document_id=document_id,
         )

@@ -73,6 +73,26 @@ class AvailableModelsResponse(BaseModel):
 
 
 ### Documents (ingestion)
+class UploadAcceptedResponse(BaseModel):
+    # 비동기 인제스트 접수 응답(202). 실제 임베딩·적재는 워커가 뒤에서 처리한다.
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: str
+    status: str
+
+
+class DocumentStatusResponse(BaseModel):
+    # 문서 인제스트 진행 상태(프론트 폴링용).
+    model_config = ConfigDict(from_attributes=True)
+
+    document_id: str
+    status: str
+    filename: str
+    total_chunks: int | None = None
+    indexed_chunks: int = 0
+    error: str | None = None
+
+
 class DocumentSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

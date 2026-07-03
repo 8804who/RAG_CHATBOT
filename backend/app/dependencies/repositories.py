@@ -5,6 +5,7 @@ from dependencies.clients import get_qdrant_client
 from repositories import (
     AuthRepository,
     CollectionMetadataRepository,
+    DocumentStatusRepository,
     LogRepository,
 )
 from repositories.vector_db import QdrantRepository
@@ -29,3 +30,8 @@ def get_collection_meta_repository() -> CollectionMetadataRepository:
 @lru_cache
 def get_log_repository() -> LogRepository:
     return LogRepository()
+
+
+@lru_cache
+def get_document_status_repository() -> DocumentStatusRepository:
+    return DocumentStatusRepository()

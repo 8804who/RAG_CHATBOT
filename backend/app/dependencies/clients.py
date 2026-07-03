@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from clients import QdrantDBClient, RedisClient
+from clients import KafkaProducerClient, QdrantDBClient, RedisClient
 
 
 @lru_cache
@@ -11,3 +11,8 @@ def get_qdrant_client():
 @lru_cache
 def get_redis_client():
     return RedisClient()
+
+
+@lru_cache
+def get_kafka_producer() -> KafkaProducerClient:
+    return KafkaProducerClient()

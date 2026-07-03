@@ -5,9 +5,11 @@ from clients.embedding import (
     SparseEncoder,
 )
 from core.model_config.embedding_model_config import embedding_model_catalog
+from dependencies.clients import get_kafka_producer
 from dependencies.repositories import (
     get_auth_repository,
     get_collection_meta_repository,
+    get_document_status_repository,
     get_log_repository,
     get_qdrant_repository,
 )
@@ -15,7 +17,12 @@ from repositories import AuthRepository, CollectionMetadataRepository
 from repositories.vector_db import QdrantRepository
 from services.auth import GoogleOAuth2Service
 from services.embedding import EmbeddingService
-from services.ingestion import DocumentService
+from services.ingestion import (
+    DocumentService,
+    EmbedIngestService,
+    IndexService,
+    ParserService,
+)
 from services.model_registry import EmbeddingModelRegistry
 from services.vector_db import QdrantService
 
@@ -51,8 +58,36 @@ def get_embedding_service() -> EmbeddingService:
 def get_document_service() -> DocumentService:
     return DocumentService(
         qdrant_repository=get_qdrant_repository(),
-        embedding_service=get_embedding_service(),
+        kafka_producer=get_kafka_producer(),
+        document_status_repository=get_document_status_repository(),
+        log_repository=get_log_repository(),
+    )
+
+
+@lru_cache
+def get_parser_service() -> ParserService:
+    return ParserService(
+        qdrant_repository=get_qdrant_repository(),
         collection_meta_repository=get_collection_meta_repository(),
+        document_status_repository=get_document_status_repository(),
+        kafka_producer=get_kafka_producer(),
+    )
+
+
+@lru_cache
+def get_embed_ingest_service() -> EmbedIngestService:
+    return EmbedIngestService(
+        embedding_service=get_embedding_service(),
+        document_status_repository=get_document_status_repository(),
+        kafka_producer=get_kafka_producer(),
+    )
+
+
+@lru_cache
+def get_index_service() -> IndexService:
+    return IndexService(
+        qdrant_repository=get_qdrant_repository(),
+        document_status_repository=get_document_status_repository(),
         log_repository=get_log_repository(),
     )
 

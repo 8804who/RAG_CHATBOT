@@ -1,9 +1,11 @@
 import type {
   DocumentChunk,
   DocumentChunksResponse,
+  DocumentStatusResponse,
   DocumentSummary,
   DocumentsResponse,
   IngestDocumentRequest,
+  UploadAcceptedResponse,
 } from '../types'
 import { apiFetch } from './client'
 
@@ -21,14 +23,26 @@ export async function listDocuments(
   return res.documents
 }
 
+// Upload is asynchronous: the backend returns 202 with a document_id and an
+// UPLOADED status. Actual parsing/embedding/indexing happen in Kafka workers;
+// poll getDocumentStatus to track progress.
 export async function ingestDocument(
   collection: string,
   request: IngestDocumentRequest,
-): Promise<DocumentSummary> {
-  return apiFetch<DocumentSummary>(basePath(collection), {
+): Promise<UploadAcceptedResponse> {
+  return apiFetch<UploadAcceptedResponse>(basePath(collection), {
     method: 'POST',
     body: JSON.stringify(request),
   })
+}
+
+export async function getDocumentStatus(
+  collection: string,
+  documentId: string,
+): Promise<DocumentStatusResponse> {
+  return apiFetch<DocumentStatusResponse>(
+    `${basePath(collection)}/${encodeURIComponent(documentId)}/status`,
+  )
 }
 
 export async function getDocumentChunks(

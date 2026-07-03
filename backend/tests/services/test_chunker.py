@@ -1,4 +1,4 @@
-from services.ingestion.chunker import chunk_text
+from utils.chunker import chunk_text
 
 
 def test_chunk_text_success_with_short_text():
