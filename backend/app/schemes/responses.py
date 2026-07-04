@@ -117,3 +117,33 @@ class DocumentChunkResponse(BaseModel):
 class DocumentChunksResponse(BaseModel):
     document_id: str
     chunks: list[DocumentChunkResponse]
+
+
+### Usage stats (My page)
+class EmbeddingUsageStat(BaseModel):
+    # 모델별 임베딩 사용량 + 비용. cost는 단가 미등록 시 None.
+    model: str
+    total_tokens: int
+    document_count: int
+    cost: float | None = None
+    currency: str | None = None
+
+
+class ChatUsageStat(BaseModel):
+    # 모델별 채팅 사용량(입력/출력/추론 토큰) + 비용. cost는 단가 미등록 시 None.
+    model: str
+    input_tokens: int
+    output_tokens: int
+    reasoning_tokens: int
+    total_tokens: int
+    message_count: int
+    cost: float | None = None
+    currency: str | None = None
+
+
+class UsageStatsResponse(BaseModel):
+    # 모델별로 그룹핑된 토큰 사용량과 토큰×단가 기반 비용 합계.
+    embedding: list[EmbeddingUsageStat]
+    chat: list[ChatUsageStat]
+    total_cost: float
+    currency: str = "USD"

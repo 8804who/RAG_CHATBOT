@@ -61,6 +61,8 @@ class ChunkEmbeddedEvent(_KafkaEvent):
     sparse_indices: list[int] | None = None
     sparse_values: list[float] | None = None
     sparse_vector_name: str | None = None
+    embedding_model: str | None = None
+    embedding_tokens: int | None = None
     requester_id: int | None = None
     requester_email: str | None = None
 

@@ -51,6 +51,9 @@ class IndexService:
                 "chunk_index": event.chunk_index,
                 "text": event.text,
                 "created_at": event.created_at,
+                # 완료 시 문서 전체 토큰 합을 여기서 다시 읽어 합산한다(Postgres에
+                # 별도 누적 컬럼을 두지 않고 Qdrant payload를 소스로 삼는다).
+                "embedding_tokens": event.embedding_tokens,
             },
             dense_vector_name=event.dense_vector_name,
             sparse=sparse,
@@ -72,15 +75,40 @@ class IndexService:
         )
 
         if total_chunks is not None and indexed_chunks >= total_chunks:
-            await self._write_success_log(db, event, total_chunks)
+            embedding_tokens = await self._sum_embedding_tokens(
+                event.collection_name, event.document_id
+            )
+            await self._write_success_log(db, event, total_chunks, embedding_tokens)
             logger.info(
                 "인제스트 완료(INDEXED): document_id=%s, chunk_count=%d",
                 event.document_id,
                 total_chunks,
             )
 
+    async def _sum_embedding_tokens(
+        self, collection_name: str, document_id: str
+    ) -> int:
+        """
+        문서의 전체 청크를 Qdrant에서 다시 읽어 임베딩 토큰 합을 계산
+
+        Parameters:
+            collection_name(str): 대상 컬렉션
+            document_id(str): 대상 문서 id
+
+        Returns:
+            int: 문서 전체 청크의 embedding_tokens 합(로컬 모델 등 누락 시 0)
+        """
+        points = await self._qdrant_repository.scroll_points(
+            collection_name, document_id=document_id
+        )
+        return sum(point.payload.get("embedding_tokens") or 0 for point in points)
+
     async def _write_success_log(
-        self, db: AsyncSession, event: ChunkEmbeddedEvent, chunk_count: int
+        self,
+        db: AsyncSession,
+        event: ChunkEmbeddedEvent,
+        chunk_count: int,
+        embedding_tokens: int,
     ) -> None:
         """
         문서 인제스트 성공 이력 기록
@@ -89,6 +117,7 @@ class IndexService:
             db(AsyncSession): DB 세션
             event(ChunkEmbeddedEvent): 마지막 청크 이벤트
             chunk_count(int): 적재된 총 청크 수
+            embedding_tokens(int): 문서 전체의 누적 임베딩 토큰 수
         """
         record = await self._document_status_repository.get(db, event.document_id)
         started_at = record.created_at if record else datetime.now(timezone.utc)
@@ -104,4 +133,6 @@ class IndexService:
             finished_at=datetime.now(timezone.utc),
             document_id=event.document_id,
             chunk_count=chunk_count,
+            embedding_model=event.embedding_model,
+            embedding_tokens=embedding_tokens,
         )

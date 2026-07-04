@@ -1,7 +1,7 @@
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import DocumentRecord, DocumentStatus
+from models import DocumentProgressStatus, DocumentStatus
 
 
 class DocumentStatusRepository:
@@ -23,7 +23,7 @@ class DocumentStatusRepository:
         filename: str,
         requester_id: int | None = None,
         requester_email: str | None = None,
-    ) -> DocumentRecord:
+    ) -> DocumentProgressStatus:
         """
         UPLOADED 상태로 문서 레코드 생성
 
@@ -36,9 +36,9 @@ class DocumentStatusRepository:
             requester_email(str | None): 요청자 이메일
 
         Returns:
-            DocumentRecord: 생성된 상태 레코드
+            DocumentProgressStatus: 생성된 상태 레코드
         """
-        record = DocumentRecord(
+        record = DocumentProgressStatus(
             document_id=document_id,
             collection_name=collection_name,
             filename=filename,
@@ -51,7 +51,9 @@ class DocumentStatusRepository:
         await db.refresh(record)
         return record
 
-    async def get(self, db: AsyncSession, document_id: str) -> DocumentRecord | None:
+    async def get(
+        self, db: AsyncSession, document_id: str
+    ) -> DocumentProgressStatus | None:
         """
         문서 상태 레코드 조회
 
@@ -60,9 +62,11 @@ class DocumentStatusRepository:
             document_id(str): 조회할 문서 id
 
         Returns:
-            DocumentRecord | None: 상태 레코드(없으면 None)
+            DocumentProgressStatus | None: 상태 레코드(없으면 None)
         """
-        stmt = select(DocumentRecord).where(DocumentRecord.document_id == document_id)
+        stmt = select(DocumentProgressStatus).where(
+            DocumentProgressStatus.document_id == document_id
+        )
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -78,8 +82,8 @@ class DocumentStatusRepository:
             status(DocumentStatus): 새 상태
         """
         stmt = (
-            update(DocumentRecord)
-            .where(DocumentRecord.document_id == document_id)
+            update(DocumentProgressStatus)
+            .where(DocumentProgressStatus.document_id == document_id)
             .values(status=status.value)
         )
         await db.execute(stmt)
@@ -97,8 +101,8 @@ class DocumentStatusRepository:
             total_chunks(int): 청킹으로 생성된 총 청크 수
         """
         stmt = (
-            update(DocumentRecord)
-            .where(DocumentRecord.document_id == document_id)
+            update(DocumentProgressStatus)
+            .where(DocumentProgressStatus.document_id == document_id)
             .values(total_chunks=total_chunks, status=DocumentStatus.PARSING.value)
         )
         await db.execute(stmt)
@@ -118,18 +122,21 @@ class DocumentStatusRepository:
             tuple[int, int | None]: (증가 후 indexed_chunks, total_chunks)
         """
         stmt = (
-            update(DocumentRecord)
-            .where(DocumentRecord.document_id == document_id)
-            .values(indexed_chunks=DocumentRecord.indexed_chunks + 1)
-            .returning(DocumentRecord.indexed_chunks, DocumentRecord.total_chunks)
+            update(DocumentProgressStatus)
+            .where(DocumentProgressStatus.document_id == document_id)
+            .values(indexed_chunks=DocumentProgressStatus.indexed_chunks + 1)
+            .returning(
+                DocumentProgressStatus.indexed_chunks,
+                DocumentProgressStatus.total_chunks,
+            )
         )
         result = await db.execute(stmt)
         indexed_chunks, total_chunks = result.one()
 
         if total_chunks is not None and indexed_chunks >= total_chunks:
             await db.execute(
-                update(DocumentRecord)
-                .where(DocumentRecord.document_id == document_id)
+                update(DocumentProgressStatus)
+                .where(DocumentProgressStatus.document_id == document_id)
                 .values(status=DocumentStatus.INDEXED.value)
             )
         await db.commit()
@@ -143,7 +150,9 @@ class DocumentStatusRepository:
             db(AsyncSession): DB 세션
             document_id(str): 삭제할 문서 id
         """
-        stmt = delete(DocumentRecord).where(DocumentRecord.document_id == document_id)
+        stmt = delete(DocumentProgressStatus).where(
+            DocumentProgressStatus.document_id == document_id
+        )
         await db.execute(stmt)
         await db.commit()
 
@@ -157,8 +166,8 @@ class DocumentStatusRepository:
             error(str): 실패 사유(내부 로그용, 1024자 제한)
         """
         stmt = (
-            update(DocumentRecord)
-            .where(DocumentRecord.document_id == document_id)
+            update(DocumentProgressStatus)
+            .where(DocumentProgressStatus.document_id == document_id)
             .values(status=DocumentStatus.FAILED.value, error=error[:1024])
         )
         await db.execute(stmt)

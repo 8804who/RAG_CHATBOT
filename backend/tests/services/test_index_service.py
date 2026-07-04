@@ -1,6 +1,7 @@
 import asyncio
 from unittest.mock import AsyncMock
 
+from schemes.dto.document import RawPoint
 from schemes.events import ChunkEmbeddedEvent
 from services.ingestion.index_service import IndexService
 
@@ -32,6 +33,8 @@ def _embedded_event() -> ChunkEmbeddedEvent:
         sparse_indices=[1],
         sparse_values=[0.5],
         sparse_vector_name="sparse",
+        embedding_model="BAAI/bge-m3",
+        embedding_tokens=5,
     )
 
 
@@ -49,19 +52,31 @@ def test_handle_success_upserts_point_without_completion_log():
     assert points[0].id == "c1"
     assert points[0].dense_vector_name == "dense"
     assert points[0].sparse is not None
+    # 완료 시 다시 합산할 수 있도록 청크별 토큰을 payload에 실어 보낸다.
+    assert points[0].payload["embedding_tokens"] == 5
     log_repo.create_document_manage_log.assert_not_awaited()
+    qdrant_repo.scroll_points.assert_not_awaited()
 
 
 def test_handle_success_marks_complete_with_success_log_on_last_chunk():
-    # 마지막 청크(indexed == total)면 성공 이력을 남긴다.
-    service, _, status_repo, log_repo = _make_service()
+    # 마지막 청크(indexed == total)면 Qdrant에서 토큰 합을 다시 읽어 성공 이력을 남긴다.
+    service, qdrant_repo, status_repo, log_repo = _make_service()
     status_repo.increment_indexed.return_value = (3, 3)  # 마지막 청크
     status_repo.get.return_value = None  # started_at은 현재 시각으로 대체
+    qdrant_repo.scroll_points.return_value = [
+        RawPoint(id="c1", payload={"embedding_tokens": 5}),
+        RawPoint(id="c2", payload={"embedding_tokens": 7}),
+        RawPoint(id="c3", payload={}),  # 로컬 모델 등 누락 시 0으로 취급
+    ]
 
     asyncio.run(service.handle(AsyncMock(), _embedded_event()))
 
+    qdrant_repo.scroll_points.assert_awaited_once_with("docs", document_id="doc1")
     log_repo.create_document_manage_log.assert_awaited_once()
     kwargs = log_repo.create_document_manage_log.await_args.kwargs
     assert kwargs["status"] == "success"
     assert kwargs["chunk_count"] == 3
     assert kwargs["document_id"] == "doc1"
+    # Qdrant payload에서 다시 읽어 합산한 임베딩 토큰과 모델명을 이력에 남긴다.
+    assert kwargs["embedding_tokens"] == 12
+    assert kwargs["embedding_model"] == "BAAI/bge-m3"

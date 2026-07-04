@@ -1,6 +1,7 @@
 from openai import AsyncOpenAI
 
 from clients.embedding.embedding_client import EmbeddingClient
+from schemes.dto.embedding import DenseEmbedResult
 
 
 class OpenAIEmbeddingClient(EmbeddingClient):
@@ -26,14 +27,16 @@ class OpenAIEmbeddingClient(EmbeddingClient):
     def dimension(self) -> int:
         return self._dimension
 
-    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+    async def embed_documents(self, texts: list[str]) -> DenseEmbedResult:
         response = await self._client.embeddings.create(
             model=self._model_name, input=texts
         )
-        return [item.embedding for item in response.data]
+        vectors = [item.embedding for item in response.data]
+        tokens = response.usage.total_tokens if response.usage else None
+        return DenseEmbedResult(vectors=vectors, tokens=tokens)
 
     async def embed_query(self, text: str) -> list[float]:
-        response = await self.client.embeddings.create(
+        response = await self._client.embeddings.create(
             model=self._model_name, input=[text]
         )
         return response.data[0].embedding

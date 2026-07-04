@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+from schemes.dto.embedding import DenseEmbedResult
+
 
 class EmbeddingClient(ABC):
     """Dense 임베딩 provider 인터페이스.
@@ -24,7 +26,7 @@ class EmbeddingClient(ABC):
         ...
 
     @abstractmethod
-    async def embed_documents(self, texts: list[str]) -> list[list[float]]:
+    async def embed_documents(self, texts: list[str]) -> DenseEmbedResult:
         """
         문서 텍스트들을 dense 벡터로 임베딩
 
@@ -32,7 +34,7 @@ class EmbeddingClient(ABC):
             texts(list[str]): 임베딩할 텍스트 목록
 
         Returns:
-            list[list[float]]: 입력 순서와 동일한 dense 벡터 목록
+            DenseEmbedResult: 입력 순서와 동일한 dense 벡터 목록 + 소비 토큰 수
         """
         ...
 

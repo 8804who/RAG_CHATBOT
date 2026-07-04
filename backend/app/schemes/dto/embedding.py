@@ -22,6 +22,19 @@ class EmbeddingResult:
 
 
 @dataclass(slots=True)
+class DenseEmbedResult:
+    """
+    dense 임베딩 batch 결과 + 토큰 사용량
+
+    tokens 는 원격 provider(OpenAI 등)가 보고한 소비 토큰 수. 로컬 모델
+    (fastembed)은 API 토큰 개념이 없으므로 None.
+    """
+
+    vectors: list[list[float]]
+    tokens: int | None = None
+
+
+@dataclass(slots=True)
 class RegisteredEmbeddingModel:
     """
     임베딩 모델 메타 데이터

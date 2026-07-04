@@ -6,6 +6,7 @@ const navItems = [
   { to: '/chat', label: 'Chat', icon: '💬' },
   { to: '/documents', label: 'Documents', icon: '📄' },
   { to: '/collections', label: 'Collections', icon: '▤' },
+  { to: '/my', label: 'My usage', icon: '📊' },
 ]
 
 export default function Layout() {

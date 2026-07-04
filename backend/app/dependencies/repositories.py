@@ -7,6 +7,7 @@ from repositories import (
     CollectionMetadataRepository,
     DocumentStatusRepository,
     LogRepository,
+    PricingRepository,
 )
 from repositories.vector_db import QdrantRepository
 
@@ -35,3 +36,8 @@ def get_log_repository() -> LogRepository:
 @lru_cache
 def get_document_status_repository() -> DocumentStatusRepository:
     return DocumentStatusRepository()
+
+
+@lru_cache
+def get_pricing_repository() -> PricingRepository:
+    return PricingRepository()

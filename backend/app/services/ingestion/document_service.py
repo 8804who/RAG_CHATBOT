@@ -5,7 +5,7 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clients import KafkaProducerClient
-from models import DocumentOperation, DocumentRecord
+from models import DocumentOperation, DocumentProgressStatus
 from repositories import DocumentStatusRepository, LogRepository
 from repositories.vector_db import QdrantRepository
 from schemes.dto.document import DocumentChunk, DocumentSummary
@@ -18,7 +18,7 @@ class DocumentService:
     """
     문서 업로드 접수(Kafka 요청) + 컬렉션 내부 문서 조회/삭제 오케스트레이션
 
-    업로드는 원문을 Kafka(documents.uploaded)로 발행만 하고 즉시 반환 
+    업로드는 원문을 Kafka(documents.uploaded)로 발행만 하고 즉시 반환
     실제 청킹·임베딩·적재는 Parser/Embed/Index 워커에서 처리
     """
 
@@ -42,7 +42,7 @@ class DocumentService:
         content: str,
         requester_id: int | None = None,
         requester_email: str | None = None,
-    ) -> DocumentRecord:
+    ) -> DocumentProgressStatus:
         """
         문서 업로드 접수 후 인제스트 파이프라인에 비동기 요청
 
@@ -55,7 +55,7 @@ class DocumentService:
             requester_email(str | None): 요청자 이메일
 
         Returns:
-            DocumentRecord: 생성된 문서 상태 레코드(document_id·status 보유)
+            DocumentProgressStatus: 생성된 문서 상태 레코드(document_id·status 보유)
         """
         document_id = uuid4().hex
         record = await self._document_status_repository.create(
@@ -89,7 +89,7 @@ class DocumentService:
 
     async def get_status(
         self, db: AsyncSession, document_id: str
-    ) -> DocumentRecord | None:
+    ) -> DocumentProgressStatus | None:
         """
         문서 인제스트 진행 상태 조회
 
@@ -98,7 +98,7 @@ class DocumentService:
             document_id(str): 조회할 문서 id
 
         Returns:
-            DocumentRecord | None: 상태 레코드(없으면 None)
+            DocumentProgressStatus | None: 상태 레코드(없으면 None)
         """
         return await self._document_status_repository.get(db, document_id)
 

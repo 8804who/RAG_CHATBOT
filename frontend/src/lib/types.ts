@@ -44,6 +44,35 @@ export interface AvailableModelsResponse {
   embedding: EmbeddingModel[]
 }
 
+// Token usage stats (GET /usage/stats), grouped by model, with cost computed
+// from per-model pricing. `cost`/`currency` are null when a model has no pricing
+// row. Shown on the My page.
+export interface EmbeddingUsageStat {
+  model: string
+  total_tokens: number
+  document_count: number
+  cost: number | null
+  currency: string | null
+}
+
+export interface ChatUsageStat {
+  model: string
+  input_tokens: number
+  output_tokens: number
+  reasoning_tokens: number
+  total_tokens: number
+  message_count: number
+  cost: number | null
+  currency: string | null
+}
+
+export interface UsageStatsResponse {
+  embedding: EmbeddingUsageStat[]
+  chat: ChatUsageStat[]
+  total_cost: number
+  currency: string
+}
+
 // Document ingestion (POST /collections/{name}/documents). The frontend reads a
 // text file's contents and sends them as `content`; chunking/embedding happen
 // server-side (asynchronously, via Kafka workers) using the collection's pinned

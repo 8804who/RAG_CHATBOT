@@ -11,6 +11,7 @@ from dependencies.repositories import (
     get_collection_meta_repository,
     get_document_status_repository,
     get_log_repository,
+    get_pricing_repository,
     get_qdrant_repository,
 )
 from repositories import AuthRepository, CollectionMetadataRepository
@@ -24,6 +25,7 @@ from services.ingestion import (
     ParserService,
 )
 from services.model_registry import EmbeddingModelRegistry
+from services.usage import UsageStatsService
 from services.vector_db import QdrantService
 
 
@@ -89,6 +91,14 @@ def get_index_service() -> IndexService:
         qdrant_repository=get_qdrant_repository(),
         document_status_repository=get_document_status_repository(),
         log_repository=get_log_repository(),
+    )
+
+
+@lru_cache
+def get_usage_stats_service() -> UsageStatsService:
+    return UsageStatsService(
+        log_repository=get_log_repository(),
+        pricing_repository=get_pricing_repository(),
     )
 
 

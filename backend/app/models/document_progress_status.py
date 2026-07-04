@@ -17,12 +17,12 @@ class DocumentStatus(str, Enum):
     FAILED = "FAILED"  # 어느 단계에서든 실패(DLQ로 격리)
 
 
-class DocumentRecord(Base):
+class DocumentProgressStatus(Base):
     """
-    문서 인제스트 상태
+    문서 인제스트 진행 상태
     """
 
-    __tablename__ = "documents"
+    __tablename__ = "document_progress_status"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     document_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)

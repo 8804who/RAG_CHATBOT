@@ -48,7 +48,7 @@ class EmbedIngestService:
                 db, event.document_id, DocumentStatus.EMBEDDING
             )
 
-        results = await self._embedding_service.embed_documents(
+        results, embedding_tokens = await self._embedding_service.embed_documents(
             event.embedding_model, [event.text], with_sparse=event.with_sparse
         )
         result = results[0]
@@ -73,6 +73,8 @@ class EmbedIngestService:
             sparse_indices=sparse_indices,
             sparse_values=sparse_values,
             sparse_vector_name=event.sparse_vector_name,
+            embedding_model=event.embedding_model,
+            embedding_tokens=embedding_tokens,
             requester_id=event.requester_id,
             requester_email=event.requester_email,
         )

@@ -38,11 +38,12 @@ def _parsed_event(chunk_index: int = 0, with_sparse: bool = True) -> DocumentPar
 
 
 def test_handle_success_with_sparse_publishes_embedded():
-    # 청크를 임베딩해 dense+sparse를 담은 chunks.embed를 발행한다.
+    # 청크를 임베딩해 dense+sparse와 소비 토큰을 담은 chunks.embed를 발행한다.
     service, embedding_service, status_repo, kafka_producer = _make_service()
-    embedding_service.embed_documents.return_value = [
-        EmbeddingResult(dense=[1.0, 2.0, 3.0], sparse=SparseVector([1], [0.5])),
-    ]
+    embedding_service.embed_documents.return_value = (
+        [EmbeddingResult(dense=[1.0, 2.0, 3.0], sparse=SparseVector([1], [0.5]))],
+        7,
+    )
 
     asyncio.run(service.handle(AsyncMock(), _parsed_event(chunk_index=0)))
 
@@ -58,15 +59,18 @@ def test_handle_success_with_sparse_publishes_embedded():
     assert embedded.dense == [1.0, 2.0, 3.0]
     assert embedded.sparse_indices == [1]
     assert embedded.sparse_values == [0.5]
+    assert embedded.embedding_model == MODEL  # 비용 집계용 모델명 전달.
+    assert embedded.embedding_tokens == 7  # 소비 토큰을 이벤트로 흘려보낸다.
     assert embedded.created_at  # 적재 payload용 생성 시각이 채워진다.
 
 
 def test_handle_success_without_sparse_omits_sparse_fields():
     # with_sparse=False면 sparse 필드를 비운 채 발행하고 상태 전환은 첫 청크만.
     service, embedding_service, status_repo, kafka_producer = _make_service()
-    embedding_service.embed_documents.return_value = [
-        EmbeddingResult(dense=[1.0, 2.0, 3.0], sparse=None),
-    ]
+    embedding_service.embed_documents.return_value = (
+        [EmbeddingResult(dense=[1.0, 2.0, 3.0], sparse=None)],
+        None,
+    )
 
     asyncio.run(
         service.handle(AsyncMock(), _parsed_event(chunk_index=1, with_sparse=False))

@@ -18,7 +18,7 @@ class EmbeddingService:
 
     async def embed_documents(
         self, model_name: str, texts: list[str], with_sparse: bool = True
-    ) -> list[EmbeddingResult]:
+    ) -> tuple[list[EmbeddingResult], int | None]:
         """
         문서 텍스트 임베딩
 
@@ -28,22 +28,24 @@ class EmbeddingService:
             with_sparse(bool): sparse 동시 생성 여부
 
         Returns:
-            list[EmbeddingResult]: 텍스트 별 임베딩 결과
+            tuple[list[EmbeddingResult], int | None]: (텍스트 별 임베딩 결과,
+                dense provider가 소비한 토큰 수; 로컬 모델은 None)
         """
         if not texts:
-            return []
+            return [], None
 
         client = self._embedding_registry.resolve(model_name)
-        dense_vectors = await client.embed_documents(texts)
+        dense = await client.embed_documents(texts)
         sparse_vectors = (
             await self._sparse_encoder.encode_documents(texts)
             if with_sparse
             else [None] * len(texts)
         )
-        return [
-            EmbeddingResult(dense=dense, sparse=sparse)
-            for dense, sparse in zip(dense_vectors, sparse_vectors, strict=True)
+        results = [
+            EmbeddingResult(dense=vector, sparse=sparse)
+            for vector, sparse in zip(dense.vectors, sparse_vectors, strict=True)
         ]
+        return results, dense.tokens
 
     async def embed_query(
         self, model_name: str, text: str, with_sparse: bool = True
