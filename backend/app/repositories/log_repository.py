@@ -72,6 +72,32 @@ class LogRepository:
         await db.refresh(log)
         return log
 
+    async def has_insert_success_log(self, db: AsyncSession, document_id: str) -> bool:
+        """
+        해당 문서의 인제스트 성공 로그가 이미 존재하는지 확인
+
+        Kafka at-least-once 재전송/워커 재시도로 마지막 청크 이벤트가 중복 처리될
+        수 있어, 성공 로그를 쓰기 전 중복 여부를 먼저 확인한다.
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            document_id(str): 확인할 문서 id
+
+        Returns:
+            bool: insert/success 로그 존재 여부
+        """
+        stmt = (
+            select(DocumentManageLog.id)
+            .where(
+                DocumentManageLog.document_id == document_id,
+                DocumentManageLog.operation == DocumentOperation.INSERT.value,
+                DocumentManageLog.status == "success",
+            )
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
     async def create_chat_usage_log(
         self,
         db: AsyncSession,

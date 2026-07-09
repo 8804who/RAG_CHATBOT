@@ -75,6 +75,10 @@ class IndexService:
         )
 
         if total_chunks is not None and indexed_chunks >= total_chunks:
+            # 마지막 청크 이벤트가 재시도/재전송으로 중복 처리돼도 성공 로그는 1건만
+            # 남도록 방어(indexed_chunks 자체는 중복 시 total_chunks를 초과할 수 있음).
+            if await self._log_repository.has_insert_success_log(db, event.document_id):
+                return
             embedding_tokens = await self._sum_embedding_tokens(
                 event.collection_name, event.document_id
             )

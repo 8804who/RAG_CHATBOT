@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import ANY, AsyncMock
 
 from schemes.dto.document import RawPoint
 from schemes.events import ChunkEmbeddedEvent
@@ -63,6 +63,7 @@ def test_handle_success_marks_complete_with_success_log_on_last_chunk():
     service, qdrant_repo, status_repo, log_repo = _make_service()
     status_repo.increment_indexed.return_value = (3, 3)  # 마지막 청크
     status_repo.get.return_value = None  # started_at은 현재 시각으로 대체
+    log_repo.has_insert_success_log.return_value = False
     qdrant_repo.scroll_points.return_value = [
         RawPoint(id="c1", payload={"embedding_tokens": 5}),
         RawPoint(id="c2", payload={"embedding_tokens": 7}),
@@ -80,3 +81,16 @@ def test_handle_success_marks_complete_with_success_log_on_last_chunk():
     # Qdrant payload에서 다시 읽어 합산한 임베딩 토큰과 모델명을 이력에 남긴다.
     assert kwargs["embedding_tokens"] == 12
     assert kwargs["embedding_model"] == "BAAI/bge-m3"
+
+
+def test_handle_skips_success_log_when_already_logged():
+    # 마지막 청크 이벤트가 재시도/재전송으로 중복 처리돼도 성공 이력은 1건만 남긴다.
+    service, qdrant_repo, status_repo, log_repo = _make_service()
+    status_repo.increment_indexed.return_value = (4, 3)  # 재처리로 total을 넘어선 경우
+    log_repo.has_insert_success_log.return_value = True
+
+    asyncio.run(service.handle(AsyncMock(), _embedded_event()))
+
+    log_repo.has_insert_success_log.assert_awaited_once_with(ANY, "doc1")
+    log_repo.create_document_manage_log.assert_not_awaited()
+    qdrant_repo.scroll_points.assert_not_awaited()

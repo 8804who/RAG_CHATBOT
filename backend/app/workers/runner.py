@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
 from typing import TypeVar
 
 from aiokafka import AIOKafkaConsumer
@@ -9,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from clients import ensure_topics
 from core.config import config
 from dependencies.clients import get_kafka_producer
-from dependencies.repositories import get_document_status_repository
+from dependencies.repositories import get_document_status_repository, get_log_repository
 from dependencies.db import AsyncSessionLocal
+from models import DocumentOperation
 from schemes.events import ALL_TOPICS, TOPIC_DOCUMENTS_DLQ, DlqEvent
 
 logger = logging.getLogger(__name__)
@@ -44,6 +46,7 @@ async def run_worker(
     producer = get_kafka_producer()
     await producer.start()
     status_repository = get_document_status_repository()
+    log_repository = get_log_repository()
 
     consumer = AIOKafkaConsumer(
         topic,
@@ -62,6 +65,7 @@ async def run_worker(
                 event_type=event_type,
                 handler=handler,
                 status_repository=status_repository,
+                log_repository=log_repository,
             )
             await consumer.commit()
     finally:
@@ -76,6 +80,7 @@ async def _process_message(
     event_type: type[TEvent],
     handler: Callable[[AsyncSession, TEvent], Awaitable[None]],
     status_repository,
+    log_repository,
 ) -> None:
     """단일 메시지 처리: 역직렬화 → 재시도 → 성공/최종 실패(DLQ) 처리."""
     key = message.key.decode() if message.key else None
@@ -123,6 +128,14 @@ async def _process_message(
                 await status_repository.set_failed(db, document_id, str(last_error))
         except Exception:
             logger.exception("worker-%s-set_failed-error", stage)
+        await _log_ingest_failure(
+            stage=stage,
+            document_id=document_id,
+            event=event,
+            error=str(last_error),
+            status_repository=status_repository,
+            log_repository=log_repository,
+        )
     await _send_to_dlq(
         stage=stage,
         error=str(last_error),
@@ -131,6 +144,41 @@ async def _process_message(
         key=key,
         raw=message.value,
     )
+
+
+async def _log_ingest_failure(
+    *,
+    stage: str,
+    document_id: str,
+    event: object,
+    error: str,
+    status_repository,
+    log_repository,
+) -> None:
+    """단계 무관 최종 실패를 문서 관리 이력에 기록(성공 로그와 대칭).
+
+    delete_document는 성공·실패를 모두 기록하는데, 인제스트 파이프라인은 성공
+    로그(IndexService)만 있고 실패는 기록되지 않아 감사 이력에 빠지는 케이스가
+    있었다. 어느 단계(parser/embed/index)에서 최종 실패해도 여기서 한 곳에 기록한다.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            record = await status_repository.get(db, document_id)
+            started_at = record.created_at if record else datetime.now(timezone.utc)
+            await log_repository.create_document_manage_log(
+                db,
+                operation=DocumentOperation.INSERT,
+                collection_name=getattr(event, "collection_name", ""),
+                filename=getattr(event, "filename", None),
+                requester_id=getattr(event, "requester_id", None),
+                requester_email=getattr(event, "requester_email", None),
+                status="failed",
+                started_at=started_at,
+                finished_at=datetime.now(timezone.utc),
+                document_id=document_id,
+            )
+    except Exception:
+        logger.exception("worker-%s-log-failure-error", stage)
 
 
 async def _send_to_dlq(

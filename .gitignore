@@ -35,3 +35,6 @@ qdrant_data/
 CLAUDE.md
 .claude/
 docs/
+
+# Alembic
+backend/app/migrations/versions/

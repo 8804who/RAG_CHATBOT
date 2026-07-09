@@ -15,16 +15,16 @@ from dependencies.services import (
     get_embedding_registry,
     get_sparse_encoder,
 )
-from dependencies.db import AsyncSessionLocal, engine
+from dependencies.db import AsyncSessionLocal
 from exceptions.handler import register_exception_handlers
-from models import Base
 from schemes.events import ALL_TOPICS
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # 스키마는 Alembic이 관리한다(`uv run alembic upgrade head`를 서버 기동 전에
+    # 실행). 과거 create_all()은 이미 존재하는 테이블에는 컬럼을 추가하지 않아
+    # 모델이 바뀌어도 조용히 스키마가 어긋나는 문제가 있었다.
     # 모델 단가 기본값 시딩(멱등). 마이페이지 비용 계산 기준값.
     async with AsyncSessionLocal() as session:
         await get_pricing_repository().upsert_defaults(session, default_pricing_rows)
