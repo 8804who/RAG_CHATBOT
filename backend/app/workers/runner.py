@@ -27,6 +27,7 @@ async def run_worker(
     stage: str,
     event_type: type[TEvent],
     handler: Callable[[AsyncSession, TEvent], Awaitable[None]],
+    manage_producer: bool = True,
 ) -> None:
     """
     한 단계 컨슈머 루프(파서/임베드/인덱스 공통).
@@ -41,10 +42,16 @@ async def run_worker(
         stage(str): 단계 이름(로그·DLQ 표기용)
         event_type(type): 메시지를 역직렬화할 이벤트 클래스
         handler(Callable): (db, event)를 받아 처리하는 코루틴
+        manage_producer(bool): True면 이 함수가 프로듀서 시작/종료를 직접 관리한다.
+            여러 단계를 한 프로세스에서 동시에 돌릴 때(예: 통합 워커)는 프로듀서가
+            싱글톤으로 공유되므로 호출부가 한 번만 start/close하고 여기서는 False로
+            넘겨야 한다 — 그렇지 않으면 동시 start 경합, 한 단계 종료 시 다른 단계가
+            쓰는 프로듀서까지 close되는 문제가 생긴다.
     """
     await ensure_topics(ALL_TOPICS)
     producer = get_kafka_producer()
-    await producer.start()
+    if manage_producer:
+        await producer.start()
     status_repository = get_document_status_repository()
     log_repository = get_log_repository()
 
@@ -70,7 +77,8 @@ async def run_worker(
             await consumer.commit()
     finally:
         await consumer.stop()
-        await producer.close()
+        if manage_producer:
+            await producer.close()
 
 
 async def _process_message(
