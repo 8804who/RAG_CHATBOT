@@ -91,10 +91,16 @@ services:
       REDIS_HOST: redis
       QDRANT_URL: http://qdrant:6333
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      HF_HOME: /cache/huggingface
+      # fastembed는 HF_HOME이 아니라 FASTEMBED_CACHE_PATH(기본값 /tmp/fastembed_cache)를
+      # 따로 쓰므로 캐시 볼륨은 여기에 마운트해야 재시작해도 모델을 다시 받지 않는다.
+      FASTEMBED_CACHE_PATH: /cache/fastembed
       HF_HUB_DISABLE_XET: "1"
+      # HF Hub의 blobs+snapshots 심링크 캐시 구조에서 onnxruntime의 external-data 경로
+      # 검증이 "External data path escapes model directory"로 실패하는 경우가 있어,
+      # 심링크 대신 스냅샷 디렉터리에 실제 파일을 두도록 강제한다.
+      HF_HUB_DISABLE_SYMLINKS: "1"
     volumes:
-      - fastembed_cache:/cache/huggingface
+      - fastembed_cache:/cache/fastembed
     depends_on:
       - postgres
       - qdrant
