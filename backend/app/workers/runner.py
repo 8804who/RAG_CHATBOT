@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clients import ensure_topics
 from core.config import config
+from core.constants import DOCUMENT_LOG_STATUS_FAILED
 from dependencies.clients import get_kafka_producer
 from dependencies.repositories import get_document_status_repository, get_log_repository
 from dependencies.db import AsyncSessionLocal
@@ -180,7 +181,7 @@ async def _log_ingest_failure(
                 filename=getattr(event, "filename", None),
                 requester_id=getattr(event, "requester_id", None),
                 requester_email=getattr(event, "requester_email", None),
-                status="failed",
+                status=DOCUMENT_LOG_STATUS_FAILED,
                 started_at=started_at,
                 finished_at=datetime.now(timezone.utc),
                 document_id=document_id,

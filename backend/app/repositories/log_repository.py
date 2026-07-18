@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.constants import DOCUMENT_LOG_STATUS_SUCCESS
 from models import ChatUsageLog, DocumentManageLog, DocumentOperation
 from schemes.dto.usage import ChatUsageRow, EmbeddingUsageRow
 
@@ -91,7 +92,7 @@ class LogRepository:
             .where(
                 DocumentManageLog.document_id == document_id,
                 DocumentManageLog.operation == DocumentOperation.INSERT.value,
-                DocumentManageLog.status == "success",
+                DocumentManageLog.status == DOCUMENT_LOG_STATUS_SUCCESS,
             )
             .limit(1)
         )
@@ -165,7 +166,7 @@ class LogRepository:
             .where(
                 DocumentManageLog.requester_id == requester_id,
                 DocumentManageLog.operation == DocumentOperation.INSERT.value,
-                DocumentManageLog.status == "success",
+                DocumentManageLog.status == DOCUMENT_LOG_STATUS_SUCCESS,
                 DocumentManageLog.embedding_model.is_not(None),
             )
             .group_by(DocumentManageLog.embedding_model)

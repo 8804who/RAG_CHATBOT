@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.constants import DOCUMENT_LOG_STATUS_SUCCESS
 from models import DocumentOperation
 from repositories import DocumentStatusRepository, LogRepository
 from repositories.vector_db import QdrantRepository
@@ -132,7 +133,7 @@ class IndexService:
             filename=event.filename,
             requester_id=event.requester_id,
             requester_email=event.requester_email,
-            status="success",
+            status=DOCUMENT_LOG_STATUS_SUCCESS,
             started_at=started_at,
             finished_at=datetime.now(timezone.utc),
             document_id=event.document_id,

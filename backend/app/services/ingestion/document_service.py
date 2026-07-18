@@ -5,6 +5,7 @@ from uuid import uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clients import KafkaProducerClient
+from core.constants import DOCUMENT_LOG_STATUS_FAILED, DOCUMENT_LOG_STATUS_SUCCESS
 from models import DocumentOperation, DocumentProgressStatus
 from repositories import DocumentStatusRepository, LogRepository
 from repositories.vector_db import QdrantRepository
@@ -206,7 +207,7 @@ class DocumentService:
                 collection_name=collection_name,
                 requester_id=requester_id,
                 requester_email=requester_email,
-                status="failed",
+                status=DOCUMENT_LOG_STATUS_FAILED,
                 started_at=started_at,
                 finished_at=datetime.now(timezone.utc),
                 document_id=document_id,
@@ -224,7 +225,7 @@ class DocumentService:
             collection_name=collection_name,
             requester_id=requester_id,
             requester_email=requester_email,
-            status="success",
+            status=DOCUMENT_LOG_STATUS_SUCCESS,
             started_at=started_at,
             finished_at=datetime.now(timezone.utc),
             document_id=document_id,

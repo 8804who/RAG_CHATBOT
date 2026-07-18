@@ -1,4 +1,11 @@
-def chunk_text(text: str, chunk_size: int = 400, overlap: int = 80) -> list[str]:
+from core.constants import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
+
+
+def chunk_text(
+    text: str,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    overlap: int = DEFAULT_CHUNK_OVERLAP,
+) -> list[str]:
     """텍스트를 단어 기준 슬라이딩 윈도우로 청킹.
 
     의미 경계(문단/문장) 인지 청킹은 추후 고도화 대상이며, MVP에서는 단어

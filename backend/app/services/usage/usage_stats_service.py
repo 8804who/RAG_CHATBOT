@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.constants import DEFAULT_CURRENCY
 from repositories import LogRepository, PricingRepository
 from schemes.dto.usage import ChatUsageRow, EmbeddingUsageRow, ModelPrice
 from schemes.responses import (
@@ -8,7 +9,6 @@ from schemes.responses import (
     UsageStatsResponse,
 )
 
-_DEFAULT_CURRENCY = "USD"
 _TOKENS_PER_UNIT = 1_000_000
 
 
@@ -56,7 +56,7 @@ class UsageStatsService:
             embedding=embedding_stats,
             chat=chat_stats,
             total_cost=round(total_cost, 6),
-            currency=_DEFAULT_CURRENCY,
+            currency=DEFAULT_CURRENCY,
         )
 
     def _embedding_stat(
