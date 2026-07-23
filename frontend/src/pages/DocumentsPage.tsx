@@ -3,6 +3,7 @@ import { useState } from 'react'
 import CollectionInfoPanel from '../components/documents/CollectionInfoPanel'
 import DocumentRow from '../components/documents/DocumentRow'
 import DocumentUpload from '../components/documents/DocumentUpload'
+import IngestProgress from '../components/documents/IngestProgress'
 import { useCollection, useCollections } from '../hooks/useCollections'
 import {
   useDeleteDocument,
@@ -11,15 +12,6 @@ import {
   useIngestDocument,
 } from '../hooks/useDocuments'
 import { ApiError } from '../lib/api/client'
-import type { DocumentIngestStatus } from '../lib/types'
-
-const STATUS_LABELS: Record<DocumentIngestStatus, string> = {
-  UPLOADED: 'Queued…',
-  PARSING: 'Chunking…',
-  EMBEDDING: 'Embedding…',
-  INDEXED: 'Indexed',
-  FAILED: 'Failed',
-}
 
 function ingestErrorMessage(error: unknown): string | null {
   if (!error) return null
@@ -111,21 +103,7 @@ export default function DocumentsPage() {
               )}
 
               {ingestStatus && ingestStatus.status !== 'INDEXED' && (
-                <p
-                  className={`rounded-lg px-3 py-2 text-sm ${
-                    ingestStatus.status === 'FAILED'
-                      ? 'bg-red-50 text-red-600'
-                      : 'bg-brand-50 text-brand-700'
-                  }`}
-                >
-                  {ingestStatus.filename}: {STATUS_LABELS[ingestStatus.status]}
-                  {ingestStatus.total_chunks !== null &&
-                    ingestStatus.status !== 'FAILED' &&
-                    ` (${ingestStatus.indexed_chunks}/${ingestStatus.total_chunks} chunks)`}
-                  {ingestStatus.status === 'FAILED' &&
-                    ingestStatus.error &&
-                    ` — ${ingestStatus.error}`}
-                </p>
+                <IngestProgress status={ingestStatus} />
               )}
 
               <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">

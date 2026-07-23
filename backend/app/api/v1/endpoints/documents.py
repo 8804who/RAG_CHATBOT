@@ -82,6 +82,8 @@ async def get_document_status(
         total_chunks: 총 청크 수(파싱 후 확정)
         indexed_chunks: 적재 완료 청크 수
         error: 실패 사유(실패 시)
+        progress_percent: 진행률(%, total_chunks 확정 전에는 0)
+        estimated_seconds_remaining: 잔여 예상 시간(초, 속도 미확정/종결 상태면 null)
 
     Error Response:
         문서 id가 존재하지 않을 경우: (404 Not Found, "해당 문서가 존재하지 않습니다")

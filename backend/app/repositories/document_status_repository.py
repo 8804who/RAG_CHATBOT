@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -95,6 +97,10 @@ class DocumentStatusRepository:
         """
         총 청크 수 기록 + 상태를 PARSING으로 전환(Parser 단계 완료)
 
+        이 시점부터 청크가 임베딩·적재되기 시작하므로 embedding_started_at을
+        함께 기록해 진행률 응답의 잔여 시간 추정(속도 = indexed_chunks / 경과 시간)의
+        기준 시각으로 쓴다.
+
         Parameters:
             db(AsyncSession): DB 세션
             document_id(str): 대상 문서 id
@@ -103,7 +109,11 @@ class DocumentStatusRepository:
         stmt = (
             update(DocumentProgressStatus)
             .where(DocumentProgressStatus.document_id == document_id)
-            .values(total_chunks=total_chunks, status=DocumentStatus.PARSING.value)
+            .values(
+                total_chunks=total_chunks,
+                status=DocumentStatus.PARSING.value,
+                embedding_started_at=datetime.now(timezone.utc),
+            )
         )
         await db.execute(stmt)
         await db.commit()

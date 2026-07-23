@@ -37,6 +37,9 @@ class DocumentProgressStatus(Base):
     )
     total_chunks: Mapped[int | None] = mapped_column(Integer)
     indexed_chunks: Mapped[int] = mapped_column(Integer, default=0)
+    embedding_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
     error: Mapped[str | None] = mapped_column(String(1024))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

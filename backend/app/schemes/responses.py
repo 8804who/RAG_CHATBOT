@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class LoginResponse(BaseModel):
@@ -91,6 +91,48 @@ class DocumentStatusResponse(BaseModel):
     total_chunks: int | None = None
     indexed_chunks: int = 0
     error: str | None = None
+    # progress_percent/estimated_seconds_remaining 계산용 내부 필드. 응답 본문에는 노출하지 않는다.
+    embedding_started_at: datetime | None = Field(default=None, exclude=True)
+
+    @computed_field
+    @property
+    def progress_percent(self) -> float:
+        """진행률(%). 청킹이 끝나 total_chunks가 확정되기 전에는 0."""
+        if not self.total_chunks:
+            return 0.0
+        return round(min(self.indexed_chunks / self.total_chunks, 1.0) * 100, 1)
+
+    @computed_field
+    @property
+    def estimated_seconds_remaining(self) -> int | None:
+        """
+        잔여 예상 시간(초).
+
+        embedding_started_at 이후 경과 시간 대비 indexed_chunks로 처리 속도를 구해
+        남은 청크 수에 곱해 선형 추정한다. 속도를 아직 알 수 없거나(첫 청크 처리 전)
+        이미 종결 상태(INDEXED/FAILED)면 None.
+        """
+        if self.status in ("INDEXED", "FAILED"):
+            return None
+        if (
+            not self.total_chunks
+            or not self.embedding_started_at
+            or self.indexed_chunks <= 0
+        ):
+            return None
+
+        elapsed = (
+            datetime.now(timezone.utc) - self.embedding_started_at
+        ).total_seconds()
+        if elapsed <= 0:
+            return None
+
+        remaining_chunks = self.total_chunks - self.indexed_chunks
+        if remaining_chunks <= 0:
+            return 0
+
+        rate = self.indexed_chunks / elapsed
+        return round(remaining_chunks / rate)
 
 
 class DocumentSummaryResponse(BaseModel):

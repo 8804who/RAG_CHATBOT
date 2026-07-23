@@ -17,3 +17,10 @@ export function formatDate(iso: string): string {
     year: 'numeric',
   })
 }
+
+export function formatSecondsRemaining(seconds: number): string {
+  if (seconds < 10) return 'a few seconds left'
+  if (seconds < 60) return `~${Math.round(seconds / 5) * 5}s left`
+  const minutes = Math.round(seconds / 60)
+  return `~${minutes}m left`
+}

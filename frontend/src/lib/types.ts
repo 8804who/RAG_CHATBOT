@@ -105,6 +105,10 @@ export interface DocumentStatusResponse {
   total_chunks: number | null
   indexed_chunks: number
   error: string | null
+  // 0 until total_chunks is known (still UPLOADED/parsing).
+  progress_percent: number
+  // null while the processing rate isn't known yet, or once INDEXED/FAILED.
+  estimated_seconds_remaining: number | null
 }
 
 export interface DocumentSummary {
