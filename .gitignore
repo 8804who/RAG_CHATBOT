@@ -38,3 +38,6 @@ docs/
 
 # Alembic
 backend/app/migrations/versions/
+
+# cache
+.cache/

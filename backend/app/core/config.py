@@ -1,4 +1,8 @@
+import os
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 
 class Config(BaseSettings):
@@ -40,6 +44,9 @@ class Config(BaseSettings):
     # Frontend
     FRONTEND_URL: str = "http://localhost:5173"
 
+    # FastEmbed(dense/sparse 로컬 모델) 캐시 경로
+    FASTEMBED_CACHE_PATH: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",
@@ -47,3 +54,5 @@ class Config(BaseSettings):
 
 
 config = Config()
+
+os.environ.setdefault("FASTEMBED_CACHE_PATH", config.FASTEMBED_CACHE_PATH)
