@@ -1,8 +1,6 @@
 import os
-from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 
 class Config(BaseSettings):
@@ -55,4 +53,5 @@ class Config(BaseSettings):
 
 config = Config()
 
-os.environ.setdefault("FASTEMBED_CACHE_PATH", config.FASTEMBED_CACHE_PATH)
+if config.FASTEMBED_CACHE_PATH:
+    os.environ.setdefault("FASTEMBED_CACHE_PATH", config.FASTEMBED_CACHE_PATH)
