@@ -67,9 +67,17 @@ class EmbeddingModelResponse(BaseModel):
     dimension: int
 
 
+class ChatModelResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    provider: str
+
+
 class AvailableModelsResponse(BaseModel):
-    # 프론트 드롭다운 소스. 채팅 모델은 추후 chat 필드로 확장.
+    # 프론트 드롭다운 소스.
     embedding: list[EmbeddingModelResponse]
+    chat: list[ChatModelResponse]
 
 
 ### Documents (ingestion)
@@ -159,6 +167,29 @@ class DocumentChunkResponse(BaseModel):
 class DocumentChunksResponse(BaseModel):
     document_id: str
     chunks: list[DocumentChunkResponse]
+
+
+### Chat
+class ChatResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    collection_name: str
+    chat_model: str
+    created_at: datetime
+
+
+class CitationResponse(BaseModel):
+    chunk_id: str
+    document_id: str
+    filename: str
+    snippet: str
+
+
+class ChatMessageResponse(BaseModel):
+    role: str
+    content: str
+    citations: list[CitationResponse]
 
 
 ### Usage stats (My page)

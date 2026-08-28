@@ -9,12 +9,14 @@ from exceptions.vector_db import (
 )
 from repositories.vector_db.vector_db_repository import VectorDBRepository
 from schemes.dto.document import IngestPoint, RawPoint
+from schemes.dto.embedding import SparseVector
 from schemes.dto.qdrant import (
     CollectionDetail,
     CollectionSummary,
     DenseVectorDetail,
     SparseVectorDetail,
 )
+from schemes.dto.retrieval import RetrievedPoint
 from schemes.requests import (
     CreateQdrantCollectionRequest,
     UpdateQdrantCollectionRequest,
@@ -266,6 +268,67 @@ class QdrantRepository(VectorDBRepository):
             if offset is None:
                 break
         return results
+
+    async def search(
+        self,
+        collection_name: str,
+        dense_vector_name: str,
+        dense: List[float],
+        limit: int,
+        sparse_vector_name: str | None = None,
+        sparse: SparseVector | None = None,
+    ) -> List[RetrievedPoint]:
+        """
+        하이브리드(dense+sparse) 검색
+
+        sparse_vector_name/sparse가 모두 주어지면 dense·sparse를 각각
+        prefetch한 뒤 RRF로 병합, 아니면 dense 단독 검색으로 폴백한다.
+
+        Parameters:
+            collection_name(str): 검색 대상 컬렉션
+            dense_vector_name(str): 컬렉션에 구성된 dense vector 이름
+            dense(List[float]): 질의 dense 벡터
+            limit(int): 반환할 결과 수
+            sparse_vector_name(str | None): 컬렉션에 구성된 sparse vector 이름
+            sparse(SparseVector | None): 질의 sparse 벡터
+
+        Returns:
+            List[RetrievedPoint]: 점수·payload를 담은 검색 결과
+        """
+        await self._check_collection_exist(collection_name)
+
+        if sparse_vector_name is not None and sparse is not None:
+            response = await self._qdrant_client.client.query_points(
+                collection_name=collection_name,
+                prefetch=[
+                    models.Prefetch(query=dense, using=dense_vector_name, limit=limit),
+                    models.Prefetch(
+                        query=models.SparseVector(
+                            indices=sparse.indices, values=sparse.values
+                        ),
+                        using=sparse_vector_name,
+                        limit=limit,
+                    ),
+                ],
+                query=models.FusionQuery(fusion=models.Fusion.RRF),
+                limit=limit,
+                with_payload=True,
+            )
+        else:
+            response = await self._qdrant_client.client.query_points(
+                collection_name=collection_name,
+                query=dense,
+                using=dense_vector_name,
+                limit=limit,
+                with_payload=True,
+            )
+
+        return [
+            RetrievedPoint(
+                id=str(point.id), score=point.score, payload=point.payload or {}
+            )
+            for point in response.points
+        ]
 
     async def delete_by_document(self, collection_name: str, document_id: str) -> None:
         """

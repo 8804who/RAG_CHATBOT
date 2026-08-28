@@ -1,16 +1,37 @@
 import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
 
-import { sendMessage } from '../lib/api/chat'
+import { createChat, sendMessage } from '../lib/api/chat'
 import type { ChatMessage } from '../lib/types'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
-export function useChat() {
+interface UseChatOptions {
+  collectionName: string | null
+  chatModel: string | null
+}
+
+export function useChat({ collectionName, chatModel }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
+  // null until the first message is sent, then pinned for the session.
+  const [chatId, setChatId] = useState<string | null>(null)
 
   const mutation = useMutation({
-    mutationFn: sendMessage,
+    mutationFn: async (text: string) => {
+      let id = chatId
+      if (!id) {
+        if (!collectionName || !chatModel) {
+          throw new Error('Pick a collection and a chat model first')
+        }
+        const chat = await createChat({
+          collection_name: collectionName,
+          chat_model: chatModel,
+        })
+        id = chat.id
+        setChatId(id)
+      }
+      return sendMessage(id, text)
+    },
     onSuccess: (assistantMessage) => {
       setMessages((prev) => [...prev, assistantMessage])
     },
@@ -31,6 +52,7 @@ export function useChat() {
 
   function reset() {
     setMessages([])
+    setChatId(null)
     mutation.reset()
   }
 
@@ -38,6 +60,7 @@ export function useChat() {
     messages,
     send,
     reset,
+    chatId,
     isThinking: mutation.isPending,
     error: mutation.error,
   }

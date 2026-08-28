@@ -29,8 +29,7 @@ class CollectionMetadataRepository:
             CollectionMeta.collection_name == collection_name
         )
         result = await db.execute(stmt)
-        result = result.scalar_one()
-        return result
+        return result.scalar_one_or_none()
 
     async def create_collection_metadata(
         self,

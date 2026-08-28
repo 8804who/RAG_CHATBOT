@@ -40,8 +40,48 @@ export interface EmbeddingModel {
   dimension: number
 }
 
+// Chat model catalog (GET /models). Drives the model dropdown shown when
+// starting a chat.
+export interface ChatModel {
+  name: string
+  provider: string
+}
+
 export interface AvailableModelsResponse {
   embedding: EmbeddingModel[]
+  chat: ChatModel[]
+}
+
+// Chat sessions (POST /chats, POST /chats/{id}/messages). A chat pins one
+// collection + one chat model at creation time; both stay fixed for its
+// lifetime.
+export interface CreateChatRequest {
+  collection_name: string
+  chat_model: string
+}
+
+export interface ChatResponse {
+  id: string
+  collection_name: string
+  chat_model: string
+  created_at: string
+}
+
+export interface SendChatMessageRequest {
+  query: string
+}
+
+export interface CitationResponse {
+  chunk_id: string
+  document_id: string
+  filename: string
+  snippet: string
+}
+
+export interface ChatMessageResponse {
+  role: MessageRole
+  content: string
+  citations: CitationResponse[]
 }
 
 // Token usage stats (GET /usage/stats), grouped by model, with cost computed

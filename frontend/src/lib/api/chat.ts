@@ -1,25 +1,45 @@
-import { USE_MOCKS, delay } from '../config'
-import type { ChatMessage } from '../types'
+import type {
+  ChatMessage,
+  ChatMessageResponse,
+  ChatResponse,
+  CreateChatRequest,
+} from '../types'
 import { apiFetch } from './client'
-import { mockAnswer } from './mockStore'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
-/** Send a user question and get the assistant's answer with citations. */
-export async function sendMessage(question: string): Promise<ChatMessage> {
-  if (USE_MOCKS) {
-    await delay(900)
-    const { content, citations } = mockAnswer(question)
-    return {
-      id: uid(),
-      role: 'assistant',
-      content,
-      citations,
-      createdAt: new Date().toISOString(),
-    }
-  }
-  return apiFetch<ChatMessage>('/api/v1/chat', {
+// The /chats routes exist on the backend, so there is no mock branch (unlike
+// the previous placeholder implementation).
+
+/** Start a new chat, pinning a collection + generation model for its lifetime. */
+export async function createChat(request: CreateChatRequest): Promise<ChatResponse> {
+  return apiFetch<ChatResponse>('/api/v1/chats', {
     method: 'POST',
-    body: JSON.stringify({ message: question }),
+    body: JSON.stringify(request),
   })
+}
+
+/** Send a question in an existing chat and get the assistant's answer with citations. */
+export async function sendMessage(
+  chatId: string,
+  query: string,
+): Promise<ChatMessage> {
+  const res = await apiFetch<ChatMessageResponse>(
+    `/api/v1/chats/${encodeURIComponent(chatId)}/messages`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    },
+  )
+  return {
+    id: uid(),
+    role: res.role,
+    content: res.content,
+    citations: res.citations.map((c) => ({
+      documentId: c.document_id,
+      documentName: c.filename,
+      snippet: c.snippet,
+    })),
+    createdAt: new Date().toISOString(),
+  }
 }

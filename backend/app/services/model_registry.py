@@ -1,7 +1,10 @@
 import logging
 
 from clients.embedding.embedding_client import EmbeddingClient
+from clients.llm.llm_client import LLMClient
+from exceptions.chat import UnsupportedChatModelError
 from exceptions.embedding import UnsupportedEmbeddingModelError
+from schemes.dto.chat import RegisteredChatModel
 from schemes.dto.embedding import RegisteredEmbeddingModel
 
 logger = logging.getLogger(__name__)
@@ -60,5 +63,62 @@ class EmbeddingModelRegistry:
             raise UnsupportedEmbeddingModelError(
                 message=f"embedding model '{model_name}' is not registered",
                 code_path="embedding_model_registry-resolve-error",
+            )
+        return entry[1]
+
+
+class ChatModelRegistry:
+    """
+    채팅(생성) 모델 목록 관리
+    """
+
+    def __init__(
+        self,
+        catalog: dict[str, tuple[RegisteredChatModel, LLMClient]],
+    ) -> None:
+        self._catalog = catalog
+
+    def list_models(self) -> list[RegisteredChatModel]:
+        """
+        등록된 채팅 모델 목록
+
+        Returns:
+            list[RegisteredChatModel]: 카탈로그 항목 목록
+        """
+        return [info for info, _ in self._catalog.values()]
+
+    def get_info(self, model_name: str) -> RegisteredChatModel:
+        """
+        모델 정보 조회
+
+        Parameters:
+            model_name(str): 조회할 모델 이름
+
+        Returns:
+            RegisteredChatModel: 모델 메타(provider)
+        """
+        entry = self._catalog.get(model_name)
+        if entry is None:
+            raise UnsupportedChatModelError(
+                message=f"chat model '{model_name}' is not registered",
+                code_path="chat_model_registry-get_info-error",
+            )
+        return entry[0]
+
+    def resolve(self, model_name: str) -> LLMClient:
+        """
+        모델 이름으로 채팅 LLM client resolve(미등록 시 예외).
+
+        Parameters:
+            model_name(str): resolve할 모델 이름
+
+        Returns:
+            LLMClient: 해당 모델의 provider client
+        """
+        entry = self._catalog.get(model_name)
+        if entry is None:
+            raise UnsupportedChatModelError(
+                message=f"chat model '{model_name}' is not registered",
+                code_path="chat_model_registry-resolve-error",
             )
         return entry[1]

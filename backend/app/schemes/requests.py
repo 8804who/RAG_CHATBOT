@@ -82,3 +82,15 @@ class UpdateQdrantCollectionRequest(BaseModel):
 class IngestDocumentRequest(BaseModel):
     filename: str = Field(..., min_length=1, max_length=255)
     content: str = Field(..., min_length=1)
+
+
+### Chat
+class CreateChatRequest(BaseModel):
+    collection_name: str = Field(..., min_length=1)
+    chat_model: str = Field(..., min_length=1)
+
+
+class SendChatMessageRequest(BaseModel):
+    # 서버가 고정 상한(DEFAULT_CHAT_MAX_COMPLETION_TOKENS)을 강제하므로 여기선
+    # 남용 방지를 위한 입력 길이만 제한한다.
+    query: str = Field(..., min_length=1, max_length=4000)

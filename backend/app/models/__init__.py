@@ -1,4 +1,5 @@
 from models.base import Base
+from models.chat import Chat, ChatMessage, ChatMessageRole
 from models.collection_meta import CollectionMeta
 from models.document_progress_status import DocumentProgressStatus, DocumentStatus
 from models.log import ChatUsageLog, DocumentManageLog, DocumentOperation
@@ -8,6 +9,9 @@ from models.user import User
 
 __all__ = [
     "Base",
+    "Chat",
+    "ChatMessage",
+    "ChatMessageRole",
     "ChatUsageLog",
     "CollectionMeta",
     "DocumentManageLog",

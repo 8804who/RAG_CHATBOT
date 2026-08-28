@@ -4,27 +4,32 @@ from clients.embedding import (
     BM25SparseEncoder,
     SparseEncoder,
 )
+from core.model_config.chat_model_config import chat_model_catalog
 from core.model_config.embedding_model_config import embedding_model_catalog
 from dependencies.clients import get_kafka_producer
 from dependencies.repositories import (
     get_auth_repository,
+    get_chat_repository,
     get_collection_meta_repository,
     get_document_status_repository,
     get_log_repository,
     get_pricing_repository,
     get_qdrant_repository,
 )
-from repositories import AuthRepository, CollectionMetadataRepository
+from repositories import AuthRepository, ChatRepository, CollectionMetadataRepository
 from repositories.vector_db import QdrantRepository
 from services.auth import GoogleOAuth2Service
+from services.chat import ChatOrchestrator
 from services.embedding import EmbeddingService
+from services.generation import GenerationService
 from services.ingestion import (
     DocumentService,
     EmbedIngestService,
     IndexService,
     ParserService,
 )
-from services.model_registry import EmbeddingModelRegistry
+from services.model_registry import ChatModelRegistry, EmbeddingModelRegistry
+from services.retrieval import RetrievalService
 from services.usage import UsageStatsService
 from services.vector_db import QdrantService
 
@@ -53,6 +58,44 @@ def get_embedding_service() -> EmbeddingService:
     return EmbeddingService(
         embedding_registry=get_embedding_registry(),
         sparse_encoder=get_sparse_encoder(),
+    )
+
+
+@lru_cache
+def get_chat_model_registry() -> ChatModelRegistry:
+    """
+    채팅 모델 목록
+    """
+    return ChatModelRegistry(catalog=chat_model_catalog)
+
+
+@lru_cache
+def get_retrieval_service() -> RetrievalService:
+    return RetrievalService(
+        qdrant_repository=get_qdrant_repository(),
+        collection_meta_repository=get_collection_meta_repository(),
+        embedding_service=get_embedding_service(),
+    )
+
+
+@lru_cache
+def get_generation_service() -> GenerationService:
+    return GenerationService(chat_model_registry=get_chat_model_registry())
+
+
+@lru_cache
+def get_chat_orchestrator() -> ChatOrchestrator:
+    chat_repository: ChatRepository = get_chat_repository()
+    collection_meta_repository: CollectionMetadataRepository = (
+        get_collection_meta_repository()
+    )
+    return ChatOrchestrator(
+        chat_repository=chat_repository,
+        chat_model_registry=get_chat_model_registry(),
+        collection_meta_repository=collection_meta_repository,
+        retrieval_service=get_retrieval_service(),
+        generation_service=get_generation_service(),
+        log_repository=get_log_repository(),
     )
 
 

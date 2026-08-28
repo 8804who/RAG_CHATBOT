@@ -4,8 +4,8 @@
 여기 값은 시작 시 upsert되는 기본값이다.
 
 - 임베딩: 로컬(fastembed) 모델은 0, OpenAI text-embedding-3-* 는 공개 단가.
-- 채팅: chat/retrieval 라우트가 아직 없어 로깅될 모델명이 확정되지 않았으므로,
-  라우트가 확정되면 해당 모델명으로 행을 추가한다(예시로 몇 개를 미리 시딩).
+- 채팅: core/model_config/chat_model_config.py 카탈로그의 모델명과 동일한
+  키로 등록해야 UsageStatsService가 비용을 계산한다(다르면 cost=None).
 """
 
 # 로그에는 컬렉션 생성 시 고른 카탈로그 키가 저장되므로, 단가도 같은 키로 등록.
@@ -33,6 +33,21 @@ default_pricing_rows: list[dict[str, object]] = [
         "kind": "embedding",
         "input_price_per_1m": 0.13,
         "output_price_per_1m": 0.0,
+        "currency": "USD",
+    },
+    # --- Chat (input/output 모두 과금) ---
+    {
+        "model": "gpt-4o-mini",
+        "kind": "chat",
+        "input_price_per_1m": 0.15,
+        "output_price_per_1m": 0.60,
+        "currency": "USD",
+    },
+    {
+        "model": "gpt-4o",
+        "kind": "chat",
+        "input_price_per_1m": 2.50,
+        "output_price_per_1m": 10.00,
         "currency": "USD",
     },
 ]

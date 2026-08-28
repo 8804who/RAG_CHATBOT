@@ -10,12 +10,14 @@ from exceptions.vector_db import (
 )
 from qdrant_client import models
 from repositories.vector_db import QdrantRepository
+from schemes.dto.embedding import SparseVector
 from schemes.dto.qdrant import (
     CollectionDetail,
     CollectionSummary,
     DenseVectorDetail,
     SparseVectorDetail,
 )
+from schemes.dto.retrieval import RetrievedPoint
 from schemes.requests import (
     CreateQdrantCollectionRequest,
     DenseVectorUpdateConfig,
@@ -160,3 +162,58 @@ def test_update_collection_failed_with_missing_collection():
         asyncio.run(repo.update_collection("missing", request))
 
     client.update_collection.assert_not_awaited()
+
+
+def test_search_success_with_hybrid_dense_and_sparse():
+    # dense+sparse가 모두 주어지면 prefetch 2개 + RRF FusionQuery로 병합 검색한다.
+    repo, client = _make_repository()
+    client.collection_exists.return_value = True
+    client.query_points.return_value = SimpleNamespace(
+        points=[SimpleNamespace(id="chunk-1", score=0.9, payload={"text": "hello"})]
+    )
+
+    result = asyncio.run(
+        repo.search(
+            "docs",
+            dense_vector_name="dense",
+            dense=[0.1, 0.2],
+            limit=5,
+            sparse_vector_name="sparse",
+            sparse=SparseVector(indices=[1], values=[1.0]),
+        )
+    )
+
+    assert result == [RetrievedPoint(id="chunk-1", score=0.9, payload={"text": "hello"})]
+    _, kwargs = client.query_points.call_args
+    assert kwargs["collection_name"] == "docs"
+    assert len(kwargs["prefetch"]) == 2
+    assert kwargs["prefetch"][0] == models.Prefetch(query=[0.1, 0.2], using="dense", limit=5)
+    assert kwargs["query"] == models.FusionQuery(fusion=models.Fusion.RRF)
+
+
+def test_search_success_with_dense_only_fallback():
+    # sparse 인자가 없으면 dense 단독 검색으로 폴백한다(prefetch 없음).
+    repo, client = _make_repository()
+    client.collection_exists.return_value = True
+    client.query_points.return_value = SimpleNamespace(points=[])
+
+    result = asyncio.run(
+        repo.search("docs", dense_vector_name="dense", dense=[0.1, 0.2], limit=5)
+    )
+
+    assert result == []
+    _, kwargs = client.query_points.call_args
+    assert kwargs["query"] == [0.1, 0.2]
+    assert kwargs["using"] == "dense"
+    assert "prefetch" not in kwargs
+
+
+def test_search_failed_with_missing_collection():
+    # 존재하지 않는 collection 검색 시 CollectionNotFoundError 발생, client 호출 안 함
+    repo, client = _make_repository()
+    client.collection_exists.return_value = False
+
+    with pytest.raises(CollectionNotFoundError):
+        asyncio.run(repo.search("missing", dense_vector_name="dense", dense=[0.1], limit=5))
+
+    client.query_points.assert_not_awaited()

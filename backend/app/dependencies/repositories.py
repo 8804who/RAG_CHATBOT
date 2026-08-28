@@ -4,6 +4,7 @@ from clients import QdrantDBClient
 from dependencies.clients import get_qdrant_client
 from repositories import (
     AuthRepository,
+    ChatRepository,
     CollectionMetadataRepository,
     DocumentStatusRepository,
     LogRepository,
@@ -15,6 +16,11 @@ from repositories.vector_db import QdrantRepository
 @lru_cache
 def get_auth_repository() -> AuthRepository:
     return AuthRepository()
+
+
+@lru_cache
+def get_chat_repository() -> ChatRepository:
+    return ChatRepository()
 
 
 @lru_cache
