@@ -1,6 +1,6 @@
 import asyncio
-import logging
 
+from core.logging_config import configure_logging
 from dependencies.clients import get_kafka_producer
 from dependencies.services import (
     get_embed_ingest_service,
@@ -17,7 +17,7 @@ from schemes.events import (
 )
 from workers.runner import run_worker
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 
 
 async def main() -> None:

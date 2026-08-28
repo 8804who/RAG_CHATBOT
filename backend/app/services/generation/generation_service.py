@@ -1,6 +1,10 @@
+import logging
+
 from schemes.dto.chat import LLMAnswer
 from schemes.dto.retrieval import RetrievedChunk
 from services.model_registry import ChatModelRegistry
+
+logger = logging.getLogger(__name__)
 
 _SYSTEM_INSTRUCTION = (
     "당신은 사내 지식베이스를 근거로 답하는 어시스턴트입니다.\n"
@@ -71,6 +75,13 @@ class GenerationService:
                 output_tokens = chunk.output_tokens
                 reasoning_tokens = chunk.reasoning_tokens
 
+        logger.debug(
+            "생성 완료: model=%s, input_tokens=%d, output_tokens=%d, reasoning_tokens=%d",
+            model_name,
+            input_tokens,
+            output_tokens,
+            reasoning_tokens,
+        )
         return LLMAnswer(
             content="".join(content_parts),
             input_tokens=input_tokens,

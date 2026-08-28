@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import DEFAULT_RETRIEVAL_TOP_K
@@ -9,6 +11,8 @@ from repositories import CollectionMetadataRepository
 from repositories.vector_db import QdrantRepository
 from schemes.dto.retrieval import RetrievedChunk
 from services.embedding import EmbeddingService
+
+logger = logging.getLogger(__name__)
 
 
 class RetrievalService:
@@ -78,7 +82,7 @@ class RetrievalService:
             sparse_vector_name=sparse_name if embedded.sparse else None,
             sparse=embedded.sparse,
         )
-        return [
+        chunks = [
             RetrievedChunk(
                 chunk_id=point.id,
                 document_id=point.payload.get("document_id", ""),
@@ -89,3 +93,10 @@ class RetrievalService:
             )
             for point in points
         ]
+        logger.debug(
+            "검색 완료: collection=%s, hybrid=%s, chunk_count=%d",
+            collection_name,
+            sparse_name is not None,
+            len(chunks),
+        )
+        return chunks

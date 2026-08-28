@@ -8,6 +8,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from api.v1.router import router as api_v1_router
 from clients import ensure_topics
 from core.config import config
+from core.logging_config import configure_logging
 from core.model_config.pricing_config import default_pricing_rows
 from dependencies.clients import get_kafka_producer, get_qdrant_client, get_redis_client
 from dependencies.repositories import get_pricing_repository
@@ -18,7 +19,10 @@ from dependencies.services import (
 )
 from dependencies.db import AsyncSessionLocal
 from exceptions.handler import register_exception_handlers
+from middlewares import ApiCallLogMiddleware
 from schemes.events import ALL_TOPICS
+
+configure_logging()
 
 
 @asynccontextmanager
@@ -60,6 +64,10 @@ app.add_middleware(
     secret_key=config.SESSION_SECRET,
     session_cookie="oauth_state",
 )
+
+# Starlette는 add_middleware를 리스트 앞쪽에 삽입하므로, 가장 바깥쪽(요청 전체
+# 수명주기 측정)에 두려면 반드시 마지막에 추가해야 한다.
+app.add_middleware(ApiCallLogMiddleware)
 
 app.include_router(api_v1_router, prefix="/api")
 

@@ -14,3 +14,10 @@ DEFAULT_RETRIEVAL_TOP_K = 8
 
 # 채팅 생성 응답의 서버 강제 상한 토큰 수(프론트 값 불신, 비용/DoS 방어)
 DEFAULT_CHAT_MAX_COMPLETION_TOKENS = 1024
+
+# API 호출 로그 처리 상태(ApiCallLogMiddleware)
+API_CALL_STATUS_SUCCESS = "success"
+API_CALL_STATUS_FAILED = "failed"
+
+# API 호출 로그에서 제외할 경로(헬스체크 등 인프라용, 사용자 API 호출이 아님)
+API_CALL_LOG_EXCLUDED_PATHS = frozenset({"/health", "/"})

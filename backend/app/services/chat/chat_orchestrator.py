@@ -1,3 +1,4 @@
+import logging
 from dataclasses import asdict
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +11,8 @@ from schemes.dto.chat import Citation, ChatTurnResult
 from services.generation import GenerationService
 from services.model_registry import ChatModelRegistry
 from services.retrieval import RetrievalService
+
+logger = logging.getLogger(__name__)
 
 _CITATION_SNIPPET_LENGTH = 300
 
@@ -70,12 +73,20 @@ class ChatOrchestrator:
                 code_path="chat_orchestrator-create_chat-error",
             )
 
-        return await self._chats.create_chat(
+        chat = await self._chats.create_chat(
             db,
             collection_name=collection_name,
             chat_model=chat_model,
             owner_id=owner_id,
         )
+        logger.info(
+            "채팅 생성 완료: chat_id=%s, collection=%s, chat_model=%s, owner_id=%s",
+            chat.id,
+            collection_name,
+            chat_model,
+            owner_id,
+        )
+        return chat
 
     async def send_message(
         self, db: AsyncSession, *, chat_id: str, query: str, requester: User
@@ -108,8 +119,23 @@ class ChatOrchestrator:
             db, chat_id=chat_id, role=ChatMessageRole.USER, content=query
         )
 
-        chunks = await self._retrieval.retrieve(db, chat.collection_name, query)
-        answer = await self._generation.answer(chat.chat_model, query, chunks)
+        logger.info(
+            "메시지 처리 시작: chat_id=%s, requester=%s, collection=%s, chat_model=%s",
+            chat_id,
+            requester.email,
+            chat.collection_name,
+            chat.chat_model,
+        )
+        try:
+            chunks = await self._retrieval.retrieve(db, chat.collection_name, query)
+            answer = await self._generation.answer(chat.chat_model, query, chunks)
+        except Exception:
+            logger.exception(
+                "메시지 처리 실패: chat_id=%s, requester=%s",
+                chat_id,
+                requester.email,
+            )
+            raise
 
         citations = [
             Citation(
@@ -139,6 +165,14 @@ class ChatOrchestrator:
             requester_email=requester.email,
             collection_name=chat.collection_name,
             conversation_id=chat.id,
+        )
+
+        logger.info(
+            "메시지 처리 완료: chat_id=%s, chunk_count=%d, input_tokens=%d, output_tokens=%d",
+            chat_id,
+            len(chunks),
+            answer.input_tokens,
+            answer.output_tokens,
         )
 
         return ChatTurnResult(content=answer.content, citations=citations)

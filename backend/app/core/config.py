@@ -45,6 +45,9 @@ class Config(BaseSettings):
     # FastEmbed(dense/sparse 로컬 모델) 캐시 경로
     FASTEMBED_CACHE_PATH: str | None = None
 
+    # Logging
+    LOG_LEVEL: str = "INFO"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore",
