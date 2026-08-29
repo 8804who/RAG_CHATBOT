@@ -1,0 +1,85 @@
+[
+  {
+    "id": "transformer-attention-heads",
+    "query": "How many attention heads does the base Transformer model use, and what is the dimension per head?",
+    "collectionName": "rag_eval_papers",
+    "chatModel": "gpt-4o-mini",
+    "expectedDocumentIds": ["f09b0bad761d41058adeb135349c9408"],
+    "expectedAnswer": "The base Transformer uses h=8 parallel attention heads. Since d_model=512, each head uses d_k=d_v=d_model/h=64.",
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "transformer-bleu-score",
+    "query": "What BLEU score did the 'big' Transformer model achieve on the WMT 2014 English-to-German translation task?",
+    "collectionName": "rag_eval_papers",
+    "chatModel": "gpt-4o-mini",
+    "expectedDocumentIds": ["f09b0bad761d41058adeb135349c9408"],
+    "expectedAnswer": "28.4 BLEU, a new state-of-the-art at the time, improving over the previous best reported results (including ensembles) by more than 2.0 BLEU.",
+    "minJudgeScore": 0.6,
+    "maxElapsedMs": 15000,
+    "maxTotalTokens": 7000
+  },
+  {
+    "id": "transformer-attention-scaling",
+    "query": "In scaled dot-product attention, why does the Transformer divide the dot products by the square root of d_k?",
+    "collectionName": "rag_eval_papers",
+    "chatModel": "gpt-4o-mini",
+    "expectedDocumentIds": ["f09b0bad761d41058adeb135349c9408"],
+    "expectedAnswer": "Because for large values of d_k, the dot products grow large in magnitude, which pushes the softmax function into regions with extremely small gradients. Scaling by 1/sqrt(d_k) counteracts this effect.",
+    "minJudgeScore": 0.55
+  },
+  {
+    "id": "bert-pretraining-tasks",
+    "query": "What are the two unsupervised pre-training tasks used by BERT?",
+    "collectionName": "rag_eval_papers",
+    "chatModel": "gpt-4o-mini",
+    "expectedDocumentIds": ["f0e0d947956b45a0abad5cdf9b661fb8"],
+    "expectedAnswer": "Masked Language Model (MLM), which masks about 15% of input tokens and predicts them from context, and Next Sentence Prediction (NSP), a binary task predicting whether sentence B actually follows sentence A in the original text.",
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "bert-model-sizes",
+    "query": "How many parameters do BERT_BASE and BERT_LARGE have?",
+    "collectionName": "rag_eval_papers",
+    "chatModel": "gpt-4o-mini",
+    "expectedDocumentIds": ["f0e0d947956b45a0abad5cdf9b661fb8"],
+    "expectedAnswer": "BERT_BASE has 110 million parameters (L=12 layers, H=768 hidden size, A=12 attention heads). BERT_LARGE has 340 million parameters (L=24, H=1024, A=16).",
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "bert-masking-strategy",
+    "query": "When BERT selects a token to mask for the masked language model objective, what are the three possible replacement strategies and how often is each used?",
+    "collectionName": "rag_eval_papers",
+    "chatModel": "gpt-4o-mini",
+    "expectedDocumentIds": ["f0e0d947956b45a0abad5cdf9b661fb8"],
+    "expectedAnswer": "80% of the time the token is replaced with the [MASK] token, 10% of the time it is replaced with a random token, and 10% of the time it is left unchanged.",
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "gpt-pretraining-corpus",
+    "query": "What dataset was used to pre-train the GPT language model, and roughly how many books does it contain?",
+    "collectionName": "rag_eval_papers",
+    "chatModel": "gpt-4o-mini",
+    "expectedDocumentIds": ["69331eb4436f467995fa862289838fb0"],
+    "expectedAnswer": "The BooksCorpus dataset, which contains over 7,000 unique unpublished books across genres like Adventure, Fantasy, and Romance, providing long stretches of contiguous text.",
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "gpt-architecture",
+    "query": "How many layers, hidden dimensions, and attention heads does the GPT model use?",
+    "collectionName": "rag_eval_papers",
+    "chatModel": "gpt-4o-mini",
+    "expectedDocumentIds": ["69331eb4436f467995fa862289838fb0"],
+    "expectedAnswer": "A 12-layer decoder-only Transformer with 768-dimensional hidden states, 12 attention heads, and 3072-dimensional inner feed-forward layers.",
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "gpt-ablation-no-pretraining",
+    "query": "According to GPT's ablation study, how much did removing the unsupervised pre-training step hurt the model's average score across tasks?",
+    "collectionName": "rag_eval_papers",
+    "chatModel": "gpt-4o-mini",
+    "expectedDocumentIds": ["69331eb4436f467995fa862289838fb0"],
+    "expectedAnswer": "A 14.8% decrease in average score compared to the fully pre-trained model.",
+    "minJudgeScore": 0.55
+  }
+]

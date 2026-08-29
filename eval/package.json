@@ -1,0 +1,19 @@
+{
+  "name": "rag-eval",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.0",
+    "dotenv": "^17.4.0",
+    "openai": "^7.8.0",
+    "pg": "^8.13.0",
+    "typescript": "^5.7.0"
+  }
+}

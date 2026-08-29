@@ -20,7 +20,7 @@ openai_large = OpenAIEmbeddingClient(
 )
 
 embedding_model_catalog = {
-    "BAAI/bge-m3": (
+    "intfloat/multilingual-e5-large": (
         RegisteredEmbeddingModel(
             name="intfloat/multilingual-e5-large", provider="fastembed", dimension=1024
         ),

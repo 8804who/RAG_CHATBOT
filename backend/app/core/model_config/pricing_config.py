@@ -8,9 +8,9 @@
   키로 등록해야 UsageStatsService가 비용을 계산한다(다르면 cost=None).
 """
 
-# 로그에는 컬렉션 생성 시 고른 카탈로그 키가 저장되므로, 단가도 같은 키로 등록.
-# (fastembed 로컬 모델은 카탈로그 키가 "BAAI/bge-m3")
-_FASTEMBED_LOCAL = "BAAI/bge-m3"
+# 로그에는 컬렉션 생성 요청의 embedding_model.name이 저장되므로, 단가도 같은
+# 문자열로 등록(카탈로그 dict 키가 아님 — embedding_model_config.py 참고).
+_FASTEMBED_LOCAL = "intfloat/multilingual-e5-large"
 
 default_pricing_rows: list[dict[str, object]] = [
     # --- Embedding (input만 과금, output=0) ---

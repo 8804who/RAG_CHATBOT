@@ -19,6 +19,11 @@ dist-ssr/
 *.local
 .vite/
 
+# Playwright (eval/)
+eval/test-results/
+eval/playwright-report/
+eval/test-data/
+
 # Editor / OS
 .DS_Store
 .idea/
