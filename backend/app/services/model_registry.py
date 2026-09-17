@@ -1,7 +1,8 @@
 import logging
 
+from langchain_core.language_models import BaseChatModel
+
 from clients.embedding.embedding_client import EmbeddingClient
-from clients.llm.llm_client import LLMClient
 from exceptions.chat import UnsupportedChatModelError
 from exceptions.embedding import UnsupportedEmbeddingModelError
 from schemes.dto.chat import RegisteredChatModel
@@ -74,7 +75,7 @@ class ChatModelRegistry:
 
     def __init__(
         self,
-        catalog: dict[str, tuple[RegisteredChatModel, LLMClient]],
+        catalog: dict[str, tuple[RegisteredChatModel, BaseChatModel]],
     ) -> None:
         self._catalog = catalog
 
@@ -105,15 +106,15 @@ class ChatModelRegistry:
             )
         return entry[0]
 
-    def resolve(self, model_name: str) -> LLMClient:
+    def resolve(self, model_name: str) -> BaseChatModel:
         """
-        모델 이름으로 채팅 LLM client resolve(미등록 시 예외).
+        모델 이름으로 채팅 모델(BaseChatModel) resolve(미등록 시 예외).
 
         Parameters:
             model_name(str): resolve할 모델 이름
 
         Returns:
-            LLMClient: 해당 모델의 provider client
+            BaseChatModel: 해당 모델의 LangChain 채팅 모델 인스턴스
         """
         entry = self._catalog.get(model_name)
         if entry is None:

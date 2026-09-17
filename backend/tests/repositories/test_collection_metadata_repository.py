@@ -35,3 +35,22 @@ def test_get_collection_metadata_success_with_existing_row():
     result = asyncio.run(repo.get_collection_metadata(db, "docs"))
 
     assert result is meta
+
+
+def test_list_all_success_with_multiple_rows():
+    # 전체 컬렉션 메타 목록을 반환한다(에이전트의 검색 대상 후보 나열용).
+    repo = CollectionMetadataRepository()
+    metas = [
+        CollectionMeta(collection_name="docs", embedding_model="m", dimension=1),
+        CollectionMeta(collection_name="hr", embedding_model="m", dimension=1),
+    ]
+    scalars = MagicMock()
+    scalars.all.return_value = metas
+    result_mock = MagicMock()
+    result_mock.scalars.return_value = scalars
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=result_mock)
+
+    result = asyncio.run(repo.list_all(db))
+
+    assert result == metas

@@ -183,11 +183,15 @@ def test_search_success_with_hybrid_dense_and_sparse():
         )
     )
 
-    assert result == [RetrievedPoint(id="chunk-1", score=0.9, payload={"text": "hello"})]
+    assert result == [
+        RetrievedPoint(id="chunk-1", score=0.9, payload={"text": "hello"})
+    ]
     _, kwargs = client.query_points.call_args
     assert kwargs["collection_name"] == "docs"
     assert len(kwargs["prefetch"]) == 2
-    assert kwargs["prefetch"][0] == models.Prefetch(query=[0.1, 0.2], using="dense", limit=5)
+    assert kwargs["prefetch"][0] == models.Prefetch(
+        query=[0.1, 0.2], using="dense", limit=5
+    )
     assert kwargs["query"] == models.FusionQuery(fusion=models.Fusion.RRF)
 
 
@@ -214,6 +218,8 @@ def test_search_failed_with_missing_collection():
     client.collection_exists.return_value = False
 
     with pytest.raises(CollectionNotFoundError):
-        asyncio.run(repo.search("missing", dense_vector_name="dense", dense=[0.1], limit=5))
+        asyncio.run(
+            repo.search("missing", dense_vector_name="dense", dense=[0.1], limit=5)
+        )
 
     client.query_points.assert_not_awaited()

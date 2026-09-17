@@ -21,7 +21,9 @@ def _make_service() -> tuple[EmbedIngestService, AsyncMock, AsyncMock, AsyncMock
     return service, embedding_service, status_repo, kafka_producer
 
 
-def _parsed_event(chunk_index: int = 0, with_sparse: bool = True) -> DocumentParsedEvent:
+def _parsed_event(
+    chunk_index: int = 0, with_sparse: bool = True
+) -> DocumentParsedEvent:
     return DocumentParsedEvent(
         document_id="doc1",
         collection_name="docs",

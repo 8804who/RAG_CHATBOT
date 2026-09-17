@@ -27,6 +27,7 @@ export default function CreateCollectionForm({
 }: CreateCollectionFormProps) {
   const { data: models, isLoading: modelsLoading } = useEmbeddingModels()
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   // Explicit user choice overrides the default; otherwise fall back to the first
   // registered model. Derived during render so no setState-in-effect is needed.
   const [modelOverride, setModelOverride] = useState('')
@@ -64,6 +65,7 @@ export default function CreateCollectionForm({
         normalize: true,
       },
       on_disk_payload: onDiskPayload,
+      description: description.trim() || undefined,
     }
     onSubmit(request)
   }
@@ -92,6 +94,20 @@ export default function CreateCollectionForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="my-knowledge-base"
+          className={fieldClass}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="collection-description" className={labelClass}>
+          Description (optional)
+        </label>
+        <textarea
+          id="collection-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="What kind of documents live here? Shown to the RAG agent so it can pick this collection for relevant questions."
+          rows={2}
           className={fieldClass}
         />
       </div>

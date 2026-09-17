@@ -16,10 +16,16 @@ export interface RagDocument {
   createdAt: string
 }
 
+export type CitationSourceType = 'document' | 'web'
+
 export interface Citation {
-  documentId: string
-  documentName: string
+  sourceType: CitationSourceType
+  title: string
   snippet: string
+  documentId?: string | null
+  chunkId?: string | null
+  collectionName?: string | null
+  url?: string | null
 }
 
 export type MessageRole = 'user' | 'assistant'
@@ -53,16 +59,17 @@ export interface AvailableModelsResponse {
 }
 
 // Chat sessions (POST /chats, POST /chats/{id}/messages). A chat pins one
-// collection + one chat model at creation time; both stay fixed for its
-// lifetime.
+// chat model at creation time (stays fixed for its lifetime). collection_name
+// is optional: if set, retrieval is restricted to it (legacy pinned mode); if
+// omitted, the agent picks the collection(s) to search per query.
 export interface CreateChatRequest {
-  collection_name: string
+  collection_name?: string
   chat_model: string
 }
 
 export interface ChatResponse {
   id: string
-  collection_name: string
+  collection_name: string | null
   chat_model: string
   created_at: string
 }
@@ -72,10 +79,13 @@ export interface SendChatMessageRequest {
 }
 
 export interface CitationResponse {
-  chunk_id: string
-  document_id: string
-  filename: string
+  source_type: CitationSourceType
+  title: string
   snippet: string
+  document_id?: string | null
+  chunk_id?: string | null
+  collection_name?: string | null
+  url?: string | null
 }
 
 export interface ChatMessageResponse {
@@ -210,6 +220,9 @@ export interface CreateCollectionRequest {
   sparse_vectors: Record<string, SparseVectorConfig>
   embedding_model: EmbeddingModelInfo
   on_disk_payload: boolean
+  // Shown to the RAG agent when a chat has no collection pinned, so it can
+  // pick the right collection for a query. Optional but recommended.
+  description?: string
 }
 
 // Single-collection detail (GET /collections/{name}). Qdrant cannot change a

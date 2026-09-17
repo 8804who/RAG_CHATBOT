@@ -3,8 +3,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from langchain_core.language_models import BaseChatModel
+
 from clients.embedding.embedding_client import EmbeddingClient
-from clients.llm.llm_client import LLMClient
 from exceptions.chat import UnsupportedChatModelError
 from exceptions.embedding import UnsupportedEmbeddingModelError
 from schemes.dto.chat import RegisteredChatModel
@@ -58,9 +59,9 @@ def test_get_info_failed_with_unknown_model():
         registry.get_info("unknown-model")
 
 
-def _make_chat_registry() -> tuple[ChatModelRegistry, LLMClient]:
+def _make_chat_registry() -> tuple[ChatModelRegistry, BaseChatModel]:
     """단일 채팅 모델을 가진 레지스트리 생성 헬퍼."""
-    client = AsyncMock(spec=LLMClient)
+    client = AsyncMock(spec=BaseChatModel)
     info = RegisteredChatModel(name="gpt-4o-mini", provider="openai")
     registry = ChatModelRegistry(catalog={"gpt-4o-mini": (info, client)})
     return registry, client

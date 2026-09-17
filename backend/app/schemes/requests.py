@@ -39,6 +39,8 @@ class CreateQdrantCollectionRequest(BaseModel):
     sparse_vectors: dict[str, SparseVectorConfig] = Field(default_factory=dict)
     embedding_model: EmbeddingModelInfo
     on_disk_payload: bool = True
+    # 에이전트가 컬렉션 미지정 채팅에서 검색 대상을 고를 때 참고하는 설명.
+    description: str | None = Field(default=None, max_length=1000)
 
     @model_validator(mode="after")
     def check_dense_dim(self):
@@ -86,7 +88,8 @@ class IngestDocumentRequest(BaseModel):
 
 ### Chat
 class CreateChatRequest(BaseModel):
-    collection_name: str = Field(..., min_length=1)
+    # 미지정(None) 시 에이전트가 매 질의마다 검색 대상 컬렉션을 스스로 고른다.
+    collection_name: str | None = Field(default=None, min_length=1)
     chat_model: str = Field(..., min_length=1)
 
 

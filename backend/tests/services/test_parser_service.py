@@ -5,7 +5,11 @@ import pytest
 
 from exceptions.document import EmptyDocumentError
 from schemes.dto.qdrant import CollectionDetail, DenseVectorDetail, SparseVectorDetail
-from schemes.events import TOPIC_DOCUMENTS_PARSED, DocumentParsedEvent, DocumentUploadedEvent
+from schemes.events import (
+    TOPIC_DOCUMENTS_PARSED,
+    DocumentParsedEvent,
+    DocumentUploadedEvent,
+)
 from services.ingestion.parser_service import ParserService
 
 MODEL = "BAAI/bge-m3"

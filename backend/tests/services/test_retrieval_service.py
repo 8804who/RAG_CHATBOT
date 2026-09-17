@@ -64,7 +64,9 @@ def test_retrieve_success_with_hybrid_search():
     embedding_service.embed_query.return_value = EmbeddingResult(
         dense=[0.1, 0.2, 0.3], sparse=SparseVector(indices=[1], values=[1.0])
     )
-    service = _make_service(qdrant_repository, collection_meta_repository, embedding_service)
+    service = _make_service(
+        qdrant_repository, collection_meta_repository, embedding_service
+    )
 
     result = asyncio.run(service.retrieve(AsyncMock(), "docs", "질문"))
 
@@ -81,7 +83,9 @@ def test_retrieve_success_with_hybrid_search():
 def test_retrieve_success_with_dense_only_fallback():
     # sparse vector가 컬렉션에 없으면 dense 단독으로 검색한다.
     qdrant_repository = AsyncMock()
-    qdrant_repository.get_collection.return_value = _collection_detail(with_sparse=False)
+    qdrant_repository.get_collection.return_value = _collection_detail(
+        with_sparse=False
+    )
     qdrant_repository.search.return_value = []
     collection_meta_repository = AsyncMock()
     collection_meta_repository.get_collection_metadata.return_value = CollectionMeta(
@@ -91,7 +95,9 @@ def test_retrieve_success_with_dense_only_fallback():
     embedding_service.embed_query.return_value = EmbeddingResult(
         dense=[0.1, 0.2, 0.3], sparse=None
     )
-    service = _make_service(qdrant_repository, collection_meta_repository, embedding_service)
+    service = _make_service(
+        qdrant_repository, collection_meta_repository, embedding_service
+    )
 
     asyncio.run(service.retrieve(AsyncMock(), "docs", "질문"))
 
@@ -108,7 +114,9 @@ def test_retrieve_failed_with_missing_collection_meta():
     collection_meta_repository = AsyncMock()
     collection_meta_repository.get_collection_metadata.return_value = None
     embedding_service = AsyncMock()
-    service = _make_service(qdrant_repository, collection_meta_repository, embedding_service)
+    service = _make_service(
+        qdrant_repository, collection_meta_repository, embedding_service
+    )
 
     with pytest.raises(CollectionMetaNotFoundError):
         asyncio.run(service.retrieve(AsyncMock(), "docs", "질문"))
@@ -133,7 +141,9 @@ def test_retrieve_failed_with_no_dense_vector_configured():
         collection_name="docs", embedding_model="BAAI/bge-m3", dimension=3
     )
     embedding_service = AsyncMock()
-    service = _make_service(qdrant_repository, collection_meta_repository, embedding_service)
+    service = _make_service(
+        qdrant_repository, collection_meta_repository, embedding_service
+    )
 
     with pytest.raises(DenseVectorNotConfiguredError):
         asyncio.run(service.retrieve(AsyncMock(), "docs", "질문"))

@@ -15,6 +15,10 @@ const suggestions = [
 const selectClass =
   'rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:opacity-50'
 
+// Sentinel select value for "let the agent pick the collection(s) per query"
+// (maps to collection_name: undefined on the wire, see useChat).
+const AGENT_CHOOSES_COLLECTION = '__agent_choose__'
+
 export default function ChatPage() {
   const { data: collections, isLoading: collectionsLoading } = useCollections()
   const { data: chatModels, isLoading: chatModelsLoading } = useChatModels()
@@ -23,11 +27,14 @@ export default function ChatPage() {
   const [collectionOverride, setCollectionOverride] = useState('')
   const [chatModelOverride, setChatModelOverride] = useState('')
 
-  const collectionName = collectionOverride || collections?.[0]?.name || ''
+  const collectionSelectValue =
+    collectionOverride || collections?.[0]?.name || AGENT_CHOOSES_COLLECTION
+  const collectionName =
+    collectionSelectValue === AGENT_CHOOSES_COLLECTION ? null : collectionSelectValue
   const chatModel = chatModelOverride || chatModels?.[0]?.name || ''
 
   const { messages, send, reset, chatId, isThinking } = useChat({
-    collectionName: collectionName || null,
+    collectionName,
     chatModel: chatModel || null,
   })
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -37,10 +44,10 @@ export default function ChatPage() {
   }, [messages, isThinking])
 
   const isEmpty = messages.length === 0
-  // The server pins collection + chat_model at creation time, so once a chat
-  // has started the pickers can no longer change anything — lock them.
+  // The server pins chat_model (and collection, if set) at creation time, so
+  // once a chat has started the pickers can no longer change anything — lock them.
   const pickersLocked = chatId !== null
-  const canChat = collectionName !== '' && chatModel !== ''
+  const canChat = chatModel !== ''
 
   return (
     <div className="flex h-full flex-col">
@@ -49,26 +56,24 @@ export default function ChatPage() {
         <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="Collection"
-            value={collectionName}
+            value={collectionSelectValue}
             onChange={(e) => setCollectionOverride(e.target.value)}
-            disabled={
-              pickersLocked ||
-              collectionsLoading ||
-              !collections ||
-              collections.length === 0
-            }
+            disabled={pickersLocked || collectionsLoading}
             className={selectClass}
           >
             {collectionsLoading ? (
               <option value="">Loading collections…</option>
-            ) : !collections || collections.length === 0 ? (
-              <option value="">No collections</option>
             ) : (
-              collections.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
+              <>
+                <option value={AGENT_CHOOSES_COLLECTION}>
+                  Let the agent choose
                 </option>
-              ))
+                {collections?.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </>
             )}
           </select>
           <select
@@ -134,7 +139,7 @@ export default function ChatPage() {
               </div>
             ) : (
               <p className="mt-6 text-sm text-gray-400">
-                Pick a collection and a chat model above to get started.
+                Pick a chat model above to get started.
               </p>
             )}
           </div>

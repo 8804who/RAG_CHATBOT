@@ -31,12 +31,29 @@ class CollectionMetadataRepository:
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def list_all(self, db: AsyncSession) -> list[CollectionMeta]:
+        """
+        전체 컬렉션 메타 데이터 목록 조회
+
+        에이전트가 컬렉션 미지정 채팅에서 검색 대상 후보를 나열할 때 사용.
+
+        Parameters:
+            db(AsyncSession): DB 세션
+
+        Returns:
+            list[CollectionMeta]: 전체 매핑 정보 목록
+        """
+        stmt = select(CollectionMeta)
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
+
     async def create_collection_metadata(
         self,
         db: AsyncSession,
         collection_name: str,
         embedding_model: str,
         dimension: int,
+        description: str | None = None,
     ) -> CollectionMeta:
         """
         컬렉션 메타 데이터 생성
@@ -46,6 +63,7 @@ class CollectionMetadataRepository:
             collection_name(str): collection 이름
             embedding_model(str): 고정할 임베딩 모델 이름
             dimension(int): 임베딩 차원
+            description(str | None): 컬렉션 설명(에이전트의 컬렉션 선택 근거)
 
         Returns:
             CollectionMeta: 저장된 매핑 정보
@@ -56,6 +74,7 @@ class CollectionMetadataRepository:
                 collection_name=collection_name,
                 embedding_model=embedding_model,
                 dimension=dimension,
+                description=description,
             )
             .returning(CollectionMeta)
         )

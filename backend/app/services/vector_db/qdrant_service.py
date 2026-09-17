@@ -85,6 +85,7 @@ class QdrantService(VectorDBService):
             collection_name=collection_info.collection_name,
             embedding_model=model.name,
             dimension=model.dimension,
+            description=collection_info.description,
         )
         return result
 

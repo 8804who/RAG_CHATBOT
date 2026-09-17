@@ -45,6 +45,14 @@ class Config(BaseSettings):
     # FastEmbed(dense/sparse 로컬 모델) 캐시 경로
     FASTEMBED_CACHE_PATH: str | None = None
 
+    # 에이전트 웹 검색 도구(langchain-tavily). 미설정 시 웹 검색 도구를 생략한다.
+    TAVILY_API_KEY: str | None = None
+
+    # Langfuse(에이전트 실행 추적). 둘 다 설정된 경우에만 추적을 활성화한다.
+    LANGFUSE_PUBLIC_KEY: str | None = None
+    LANGFUSE_SECRET_KEY: str | None = None
+    LANGFUSE_BASE_URL: str | None = None
+
     # Logging
     LOG_LEVEL: str = "INFO"
 
@@ -58,3 +66,14 @@ config = Config()
 
 if config.FASTEMBED_CACHE_PATH:
     os.environ.setdefault("FASTEMBED_CACHE_PATH", config.FASTEMBED_CACHE_PATH)
+
+# langchain-tavily/langfuse SDK는 생성자 인자가 아니라 환경변수를 직접 읽으므로,
+# Config에 실려 온 값을 동일한 이름의 환경변수로 다시 노출해야 한다.
+if config.TAVILY_API_KEY:
+    os.environ.setdefault("TAVILY_API_KEY", config.TAVILY_API_KEY)
+if config.LANGFUSE_PUBLIC_KEY:
+    os.environ.setdefault("LANGFUSE_PUBLIC_KEY", config.LANGFUSE_PUBLIC_KEY)
+if config.LANGFUSE_SECRET_KEY:
+    os.environ.setdefault("LANGFUSE_SECRET_KEY", config.LANGFUSE_SECRET_KEY)
+if config.LANGFUSE_BASE_URL:
+    os.environ.setdefault("LANGFUSE_BASE_URL", config.LANGFUSE_BASE_URL)

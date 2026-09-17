@@ -13,12 +13,18 @@ dependencies = [
     "fastembed>=0.7.0",
     "greenlet>=3.5.1",
     "itsdangerous>=2.2.0",
+    "langchain>=1.4.1",
+    "langchain-openai>=1.6.2",
+    "langchain-tavily>=0.2.18",
+    "langfuse>=4.15.4",
+    "langgraph>=1.2.11",
     "openai>=1.0.0",
     "pydantic-settings>=2.14.1",
     "pytest>=9.0.3",
     "qdrant-client>=1.18.0",
     "redis>=8.0.0",
     "ruff>=0.15.16",
+    "simpleeval>=1.0.8",
     "sqlalchemy>=2.0.50",
 ]
 

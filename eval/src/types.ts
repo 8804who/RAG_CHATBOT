@@ -24,10 +24,13 @@ export interface JudgeVerdict {
 }
 
 export interface Citation {
-  chunk_id: string
-  document_id: string
-  filename: string
+  source_type: 'document' | 'web'
+  title: string
   snippet: string
+  document_id?: string
+  chunk_id?: string
+  collection_name?: string
+  url?: string
 }
 
 export interface ChatMessageApiResponse {

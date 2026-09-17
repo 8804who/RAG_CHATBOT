@@ -10,7 +10,12 @@ from clients import ensure_topics
 from core.config import config
 from core.logging_config import configure_logging
 from core.model_config.pricing_config import default_pricing_rows
-from dependencies.clients import get_kafka_producer, get_qdrant_client, get_redis_client
+from dependencies.clients import (
+    get_kafka_producer,
+    get_langfuse_handler,
+    get_qdrant_client,
+    get_redis_client,
+)
 from dependencies.repositories import get_pricing_repository
 from dependencies.services import (
     get_chat_model_registry,
@@ -38,6 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     get_embedding_registry()
     get_chat_model_registry()
     get_sparse_encoder()
+    get_langfuse_handler()  # None이면 추적 비활성(키 미설정)
     # 인제스트 파이프라인: 토픽 보장 + 프로듀서 시작(API는 발행만, 소비는 워커).
     await ensure_topics(ALL_TOPICS)
     await get_kafka_producer().start()

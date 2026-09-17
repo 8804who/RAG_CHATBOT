@@ -6,7 +6,7 @@ from clients.embedding import (
 )
 from core.model_config.chat_model_config import chat_model_catalog
 from core.model_config.embedding_model_config import embedding_model_catalog
-from dependencies.clients import get_kafka_producer
+from dependencies.clients import get_kafka_producer, get_langfuse_handler
 from dependencies.repositories import (
     get_auth_repository,
     get_chat_repository,
@@ -18,10 +18,9 @@ from dependencies.repositories import (
 )
 from repositories import AuthRepository, ChatRepository, CollectionMetadataRepository
 from repositories.vector_db import QdrantRepository
+from services.agent import AgentChatOrchestrator
 from services.auth import GoogleOAuth2Service
-from services.chat import ChatOrchestrator
 from services.embedding import EmbeddingService
-from services.generation import GenerationService
 from services.ingestion import (
     DocumentService,
     EmbedIngestService,
@@ -79,23 +78,19 @@ def get_retrieval_service() -> RetrievalService:
 
 
 @lru_cache
-def get_generation_service() -> GenerationService:
-    return GenerationService(chat_model_registry=get_chat_model_registry())
-
-
-@lru_cache
-def get_chat_orchestrator() -> ChatOrchestrator:
+def get_chat_orchestrator() -> AgentChatOrchestrator:
     chat_repository: ChatRepository = get_chat_repository()
     collection_meta_repository: CollectionMetadataRepository = (
         get_collection_meta_repository()
     )
-    return ChatOrchestrator(
+    return AgentChatOrchestrator(
         chat_repository=chat_repository,
         chat_model_registry=get_chat_model_registry(),
         collection_meta_repository=collection_meta_repository,
         retrieval_service=get_retrieval_service(),
-        generation_service=get_generation_service(),
+        usage_stats_service=get_usage_stats_service(),
         log_repository=get_log_repository(),
+        langfuse_handler=get_langfuse_handler(),
     )
 
 

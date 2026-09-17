@@ -7,6 +7,7 @@ import type { ChatMessage } from '../lib/types'
 const uid = () => Math.random().toString(36).slice(2, 10)
 
 interface UseChatOptions {
+  // null/omitted means "let the agent choose the collection per query".
   collectionName: string | null
   chatModel: string | null
 }
@@ -20,11 +21,11 @@ export function useChat({ collectionName, chatModel }: UseChatOptions) {
     mutationFn: async (text: string) => {
       let id = chatId
       if (!id) {
-        if (!collectionName || !chatModel) {
-          throw new Error('Pick a collection and a chat model first')
+        if (!chatModel) {
+          throw new Error('Pick a chat model first')
         }
         const chat = await createChat({
-          collection_name: collectionName,
+          collection_name: collectionName ?? undefined,
           chat_model: chatModel,
         })
         id = chat.id

@@ -11,7 +11,7 @@ const uid = () => Math.random().toString(36).slice(2, 10)
 // The /chats routes exist on the backend, so there is no mock branch (unlike
 // the previous placeholder implementation).
 
-/** Start a new chat, pinning a collection + generation model for its lifetime. */
+/** Start a new chat, pinning a generation model (and optionally a collection) for its lifetime. */
 export async function createChat(request: CreateChatRequest): Promise<ChatResponse> {
   return apiFetch<ChatResponse>('/api/v1/chats', {
     method: 'POST',
@@ -36,9 +36,13 @@ export async function sendMessage(
     role: res.role,
     content: res.content,
     citations: res.citations.map((c) => ({
-      documentId: c.document_id,
-      documentName: c.filename,
+      sourceType: c.source_type,
+      title: c.title,
       snippet: c.snippet,
+      documentId: c.document_id,
+      chunkId: c.chunk_id,
+      collectionName: c.collection_name,
+      url: c.url,
     })),
     createdAt: new Date().toISOString(),
   }

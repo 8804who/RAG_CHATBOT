@@ -6,7 +6,9 @@ from schemes.events import TOPIC_DOCUMENTS_UPLOADED, DocumentUploadedEvent
 from services.ingestion.document_service import DocumentService
 
 
-def _make_service() -> tuple[DocumentService, AsyncMock, AsyncMock, AsyncMock, AsyncMock]:
+def _make_service() -> tuple[
+    DocumentService, AsyncMock, AsyncMock, AsyncMock, AsyncMock
+]:
     """가짜 repo/producer/status_repo/log_repo로 DocumentService 생성 헬퍼."""
     qdrant_repo = AsyncMock()
     kafka_producer = AsyncMock()

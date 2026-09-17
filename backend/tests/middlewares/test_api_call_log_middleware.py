@@ -184,9 +184,7 @@ def test_dispatch_skip_with_excluded_path(monkeypatch, caplog):
     call_next = AsyncMock(return_value=Response(status_code=200))
 
     with caplog.at_level(logging.INFO, logger=_LOGGER_NAME):
-        response = asyncio.run(
-            middleware.dispatch(_request(path="/health"), call_next)
-        )
+        response = asyncio.run(middleware.dispatch(_request(path="/health"), call_next))
 
     assert response.status_code == 200
     resolve_mock.assert_not_called()

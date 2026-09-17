@@ -60,7 +60,9 @@ for (const goldenCase of cases) {
     const chatId = await createChat(apiContext, goldenCase.collectionName, goldenCase.chatModel)
     const { response, elapsedMs } = await sendMessage(apiContext, chatId, goldenCase.query)
 
-    const retrievedDocumentIds = response.citations.map((citation) => citation.document_id)
+    const retrievedDocumentIds = response.citations
+      .map((citation) => citation.document_id)
+      .filter((id): id is string => id !== undefined)
     const precision = computePrecision(retrievedDocumentIds, goldenCase.expectedDocumentIds)
 
     const usage = await getLatestChatUsage(chatId)

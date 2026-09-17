@@ -80,6 +80,8 @@ async def create_collection(
             sparse_vectors: sparse vector 구성
             embedding_model: 임베딩 모델 정보(레지스트리에 등록된 모델만 허용)
             on_disk_payload: payload 디스크 저장 여부
+            description: 컬렉션 설명(선택). 채팅에 컬렉션이 고정되지 않은 경우
+                에이전트가 검색 대상을 고를 때 참고한다.
 
     Response Body:
         bool: collection 생성 성공 여부

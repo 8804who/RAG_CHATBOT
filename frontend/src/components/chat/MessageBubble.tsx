@@ -21,10 +21,32 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
             <p className="text-xs font-medium text-gray-400">Sources</p>
             {message.citations.map((c, i) => (
               <div
-                key={i}
+                key={c.sourceType === 'web' ? (c.url ?? i) : (c.chunkId ?? i)}
                 className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
               >
-                <p className="font-medium text-gray-700">📄 {c.documentName}</p>
+                {c.sourceType === 'web' ? (
+                  c.url ? (
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-gray-700 hover:underline"
+                    >
+                      🌐 {c.title}
+                    </a>
+                  ) : (
+                    <p className="font-medium text-gray-700">🌐 {c.title}</p>
+                  )
+                ) : (
+                  <p className="font-medium text-gray-700">
+                    📄 {c.title}
+                    {c.collectionName && (
+                      <span className="ml-1.5 rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-normal text-gray-500">
+                        {c.collectionName}
+                      </span>
+                    )}
+                  </p>
+                )}
                 <p className="mt-0.5 italic">{c.snippet}</p>
               </div>
             ))}

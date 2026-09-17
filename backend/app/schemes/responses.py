@@ -174,16 +174,19 @@ class ChatResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    collection_name: str
+    collection_name: str | None
     chat_model: str
     created_at: datetime
 
 
 class CitationResponse(BaseModel):
-    chunk_id: str
-    document_id: str
-    filename: str
+    source_type: str
+    title: str
     snippet: str
+    document_id: str | None = None
+    chunk_id: str | None = None
+    collection_name: str | None = None
+    url: str | None = None
 
 
 class ChatMessageResponse(BaseModel):

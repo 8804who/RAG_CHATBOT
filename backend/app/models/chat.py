@@ -18,13 +18,15 @@ class Chat(Base):
     """
     채팅 세션
 
-    한 채팅은 생성 시 컬렉션과 채팅 모델을 선택해 고정한다(이후 변경 불가).
+    한 채팅은 생성 시 채팅 모델을 선택해 고정한다(이후 변경 불가).
+    collection_name은 선택: 지정하면 검색이 해당 컬렉션에 고정되고,
+    None이면 에이전트가 매 질의마다 검색 대상 컬렉션을 스스로 고른다.
     """
 
     __tablename__ = "chats"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    collection_name: Mapped[str] = mapped_column(String(255), index=True)
+    collection_name: Mapped[str | None] = mapped_column(String(255), index=True)
     chat_model: Mapped[str] = mapped_column(String(255))
     owner_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), index=True
