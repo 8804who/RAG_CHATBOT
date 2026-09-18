@@ -4,13 +4,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.constants import DOCUMENT_LOG_STATUS_SUCCESS
-from models import ChatUsageLog, DocumentManageLog, DocumentOperation
+from models import AgentToolCallLog, ChatUsageLog, DocumentManageLog, DocumentOperation
 from schemes.dto.usage import ChatUsageRow, EmbeddingUsageRow
 
 
 class LogRepository:
     """
-    로그 관리(문서 관리 이력 + 채팅 토큰 사용 이력)
+    로그 관리(문서 관리 이력 + 채팅 토큰 사용 이력 + 에이전트 도구 호출 이력)
     """
 
     def __init__(self) -> None:
@@ -143,6 +143,47 @@ class LogRepository:
         await db.commit()
         await db.refresh(log)
         return log
+
+    async def create_agent_tool_call_logs(
+        self,
+        db: AsyncSession,
+        *,
+        tool_calls: list[dict],
+        conversation_id: str | None = None,
+        requester_id: int | None = None,
+        requester_email: str | None = None,
+    ) -> list[AgentToolCallLog]:
+        """
+        에이전트 도구 호출 이력 저장(한 턴에서 호출된 도구들을 한 번에 저장)
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            tool_calls(list[dict]): [{"name": str, "args": dict}, ...]
+            conversation_id(str | None): 대화 식별자
+            requester_id(int | None): 요청자 user id
+            requester_email(str | None): 요청자 이메일
+
+        Returns:
+            list[AgentToolCallLog]: 저장된 로그 목록(호출된 도구가 없으면 빈 목록)
+        """
+        if not tool_calls:
+            return []
+
+        logs = [
+            AgentToolCallLog(
+                conversation_id=conversation_id,
+                requester_id=requester_id,
+                requester_email=requester_email,
+                tool_name=call["name"],
+                tool_args=call["args"],
+            )
+            for call in tool_calls
+        ]
+        db.add_all(logs)
+        await db.commit()
+        for log in logs:
+            await db.refresh(log)
+        return logs
 
     async def aggregate_embedding_usage(
         self, db: AsyncSession, requester_id: int

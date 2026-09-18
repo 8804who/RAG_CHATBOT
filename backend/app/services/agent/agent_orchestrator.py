@@ -196,11 +196,14 @@ class AgentChatOrchestrator:
         input_tokens = 0
         output_tokens = 0
         reasoning_tokens = 0
+        tool_calls: list[dict] = []
         for message in messages:
             if not isinstance(message, AIMessage):
                 continue
             if message.content:
                 answer_content = message.content
+            for call in message.tool_calls:
+                tool_calls.append({"name": call["name"], "args": call["args"]})
             usage = message.usage_metadata
             if usage:
                 input_tokens += usage.get("input_tokens", 0) or 0
@@ -208,6 +211,13 @@ class AgentChatOrchestrator:
                 reasoning_tokens += (usage.get("output_token_details") or {}).get(
                     "reasoning", 0
                 ) or 0
+
+        logger.info(
+            "에이전트 도구 호출: chat_id=%s, requester=%s, tool_calls=%s",
+            chat_id,
+            requester.email,
+            tool_calls,
+        )
 
         citations = _extract_citations(messages)
 
@@ -229,6 +239,14 @@ class AgentChatOrchestrator:
             requester_email=requester.email,
             collection_name=chat.collection_name,
             conversation_id=chat.id,
+        )
+
+        await self._log_repository.create_agent_tool_call_logs(
+            db,
+            tool_calls=tool_calls,
+            conversation_id=chat.id,
+            requester_id=requester.id,
+            requester_email=requester.email,
         )
 
         logger.info(

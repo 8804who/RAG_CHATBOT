@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
@@ -60,6 +60,26 @@ class ChatUsageLog(Base):
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     reasoning_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class AgentToolCallLog(Base):
+    """
+    에이전트 도구 호출 이력(한 턴에서 에이전트가 호출한 도구 하나당 한 행)
+    """
+
+    __tablename__ = "agent_tool_call_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    conversation_id: Mapped[str | None] = mapped_column(String(64), index=True)
+    requester_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    requester_email: Mapped[str | None] = mapped_column(String(320))
+    tool_name: Mapped[str] = mapped_column(String(255), index=True)
+    tool_args: Mapped[dict | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

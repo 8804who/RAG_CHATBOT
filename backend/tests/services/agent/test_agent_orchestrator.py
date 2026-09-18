@@ -189,6 +189,46 @@ def test_send_message_success_with_call_order():
     assert kwargs["reasoning_tokens"] == 2
 
 
+def test_send_message_success_with_tool_calls_saved_to_log():
+    # 에이전트가 호출한 도구(이름+인자)를 턴마다 한 번에 로그 테이블로 저장한다.
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+
+    messages = [
+        HumanMessage(content="질문"),
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "search_documents",
+                    "args": {"query": "질문", "collection_name": "docs"},
+                    "id": "call_1",
+                    "type": "tool_call",
+                }
+            ],
+        ),
+        _tool_message(content=json.dumps({"results": []})),
+        AIMessage(content="답변"),
+    ]
+
+    with patch(
+        "services.agent.agent_orchestrator.create_agent",
+        return_value=_fake_graph(messages),
+    ):
+        asyncio.run(
+            orchestrator.send_message(
+                AsyncMock(), chat_id="c1", query="질문", requester=_user()
+            )
+        )
+
+    deps["log_repository"].create_agent_tool_call_logs.assert_awaited_once()
+    _, kwargs = deps["log_repository"].create_agent_tool_call_logs.call_args
+    assert kwargs["conversation_id"] == "c1"
+    assert kwargs["tool_calls"] == [
+        {"name": "search_documents", "args": {"query": "질문", "collection_name": "docs"}}
+    ]
+
+
 def test_send_message_success_with_langfuse_handler_included():
     # langfuse_handler가 설정되면 콜백 목록에 포함되고, 아니면 빈 목록이다.
     handler = MagicMock()
