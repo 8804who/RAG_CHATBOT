@@ -1,14 +1,27 @@
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from schemes.dto.retrieval import RetrievedChunk
 from services.agent.tools import (
+    build_arxiv_search_tool,
     build_calculator_tool,
     build_retrieval_tool,
     build_usage_stats_tool,
     build_web_search_tool,
 )
+
+_ARXIV_FEED = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <id>http://arxiv.org/abs/1234.5678v1</id>
+    <title>A Great Paper</title>
+    <summary>This paper studies a great topic in great depth.</summary>
+    <published>2024-01-01T00:00:00Z</published>
+    <author><name>Jane Doe</name></author>
+  </entry>
+</feed>
+"""
 
 
 def _chunk(chunk_id: str = "c1") -> RetrievedChunk:
@@ -97,6 +110,33 @@ def test_build_usage_stats_tool_success_with_scoped_requester():
     usage_stats_service.get_user_stats.assert_awaited_once_with(db, 42)
     payload = json.loads(result)
     assert payload["total_cost"] == 0.0
+
+
+def test_build_arxiv_search_tool_success_with_matching_query():
+    # arXiv 응답(Atom XML)을 제목/저자/초록/링크 JSON으로 변환한다.
+    tool = build_arxiv_search_tool()
+    fake_response = MagicMock()
+    fake_response.read.return_value = _ARXIV_FEED.encode("utf-8")
+    fake_response.__enter__.return_value = fake_response
+
+    with patch("urllib.request.urlopen", return_value=fake_response) as urlopen:
+        result = tool.invoke({"query": "great topic"})
+
+    assert "all%3Agreat+topic" in urlopen.call_args[0][0]
+    payload = json.loads(result)
+    assert payload["results"][0]["title"] == "A Great Paper"
+    assert payload["results"][0]["url"] == "http://arxiv.org/abs/1234.5678v1"
+    assert payload["results"][0]["authors"] == ["Jane Doe"]
+
+
+def test_build_arxiv_search_tool_success_with_network_error():
+    # 네트워크 오류는 예외 대신 에러 메시지 문자열을 반환한다(에이전트가 재시도 가능).
+    tool = build_arxiv_search_tool()
+
+    with patch("urllib.request.urlopen", side_effect=OSError("boom")):
+        result = tool.invoke({"query": "anything"})
+
+    assert "arXiv 검색 실패" in result
 
 
 def test_build_web_search_tool_success_with_missing_api_key(monkeypatch):

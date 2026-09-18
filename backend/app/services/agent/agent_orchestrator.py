@@ -13,8 +13,10 @@ from models import Chat, ChatMessageRole, User
 from repositories import ChatRepository, CollectionMetadataRepository, LogRepository
 from schemes.dto.chat import Citation, ChatTurnResult
 from services.agent.tools import (
+    ARXIV_SEARCH_TOOL_NAME,
     RETRIEVAL_TOOL_NAME,
     WEB_SEARCH_TOOL_NAME,
+    build_arxiv_search_tool,
     build_calculator_tool,
     build_retrieval_tool,
     build_usage_stats_tool,
@@ -157,6 +159,7 @@ class AgentChatOrchestrator:
             ),
             build_calculator_tool(),
             build_usage_stats_tool(db, self._usage_stats, requester.id),
+            build_arxiv_search_tool(),
         ]
         web_search_tool = build_web_search_tool()
         if web_search_tool is not None:
@@ -243,7 +246,7 @@ def _extract_citations(messages: list) -> list[Citation]:
     """
     도구(ToolMessage)의 JSON 결과를 파싱해 인용 목록으로 변환
 
-    문서 검색 도구와 웹 검색 도구 결과를 모두 인용으로 취급하며, 같은
+    문서 검색 도구, 웹 검색 도구, arXiv 검색 도구 결과를 모두 인용으로 취급하며, 같은
     출처(chunk_id 또는 url)가 여러 번 검색돼도 한 번만 남긴다.
     """
     seen: dict[str, Citation] = {}
@@ -268,7 +271,7 @@ def _extract_citations(messages: list) -> list[Citation]:
                     chunk_id=chunk_id,
                     collection_name=item.get("collection_name"),
                 )
-        elif message.name == WEB_SEARCH_TOOL_NAME:
+        elif message.name in (WEB_SEARCH_TOOL_NAME, ARXIV_SEARCH_TOOL_NAME):
             for item in payload.get("results", []):
                 url = item.get("url")
                 if not url or url in seen:

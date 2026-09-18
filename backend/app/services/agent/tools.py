@@ -1,5 +1,8 @@
 import json
 import logging
+import urllib.parse
+import urllib.request
+import xml.etree.ElementTree as ET
 
 from langchain_core.tools import BaseTool, tool
 from simpleeval import simple_eval
@@ -14,8 +17,12 @@ logger = logging.getLogger(__name__)
 
 RETRIEVAL_TOOL_NAME = "search_documents"
 WEB_SEARCH_TOOL_NAME = "tavily_search"
+ARXIV_SEARCH_TOOL_NAME = "arxiv_search"
 
 _SNIPPET_LENGTH = 300
+_ARXIV_API_URL = "http://export.arxiv.org/api/query"
+_ARXIV_MAX_RESULTS = 5
+_ATOM_NS = "{http://www.w3.org/2005/Atom}"
 
 
 def _chunks_to_json(chunks, collection_name: str) -> str:
@@ -163,6 +170,57 @@ def build_usage_stats_tool(
         )
 
     return get_my_usage_stats
+
+
+def build_arxiv_search_tool() -> BaseTool:
+    """
+    arXiv 논문 검색 도구 생성
+
+    arXiv 공개 API(export.arxiv.org, 키 불필요)를 직접 호출한다. 응답은
+    tavily_search와 동일한 {url, title, content} 형태로 맞춰서, 인용 추출
+    (_extract_citations)이 별도 분기 없이 재사용된다.
+
+    Returns:
+        BaseTool: arXiv 검색 도구
+    """
+
+    @tool(ARXIV_SEARCH_TOOL_NAME)
+    def search_arxiv(query: str) -> str:
+        """주제(topic)로 arXiv 논문을 검색해 제목/저자/초록/링크를 반환한다."""
+        params = urllib.parse.urlencode(
+            {
+                "search_query": f"all:{query}",
+                "start": 0,
+                "max_results": _ARXIV_MAX_RESULTS,
+            }
+        )
+        try:
+            with urllib.request.urlopen(
+                f"{_ARXIV_API_URL}?{params}", timeout=10
+            ) as response:
+                feed = ET.fromstring(response.read())
+        except Exception as exc:
+            return f"arXiv 검색 실패: {exc}"
+
+        results = []
+        for entry in feed.findall(f"{_ATOM_NS}entry"):
+            summary = (entry.findtext(f"{_ATOM_NS}summary") or "").strip()
+            authors = [
+                author.findtext(f"{_ATOM_NS}name", default="")
+                for author in entry.findall(f"{_ATOM_NS}author")
+            ]
+            results.append(
+                {
+                    "title": (entry.findtext(f"{_ATOM_NS}title") or "").strip(),
+                    "url": (entry.findtext(f"{_ATOM_NS}id") or "").strip(),
+                    "content": summary[:_SNIPPET_LENGTH],
+                    "authors": authors,
+                    "published": entry.findtext(f"{_ATOM_NS}published"),
+                }
+            )
+        return json.dumps({"results": results}, ensure_ascii=False)
+
+    return search_arxiv
 
 
 def build_web_search_tool() -> BaseTool | None:

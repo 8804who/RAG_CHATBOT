@@ -275,13 +275,31 @@ def test_extract_citations_success_with_document_and_web_sources():
                 }
             ),
         ),
+        _tool_message(
+            name="arxiv_search",
+            content=json.dumps(
+                {
+                    "results": [
+                        {
+                            "title": "A Great Paper",
+                            "url": "http://arxiv.org/abs/1234.5678v1",
+                            "content": "초록 내용",
+                        }
+                    ]
+                }
+            ),
+        ),
     ]
 
     citations = _extract_citations(messages)
 
-    assert len(citations) == 2
+    assert len(citations) == 3
     doc_citation = next(c for c in citations if c.source_type == "document")
-    web_citation = next(c for c in citations if c.source_type == "web")
+    web_citation = next(c for c in citations if c.url == "https://example.com")
+    arxiv_citation = next(
+        c for c in citations if c.url == "http://arxiv.org/abs/1234.5678v1"
+    )
     assert doc_citation.chunk_id == "c1"
-    assert web_citation.url == "https://example.com"
     assert web_citation.title == "뉴스 제목"
+    assert arxiv_citation.source_type == "web"
+    assert arxiv_citation.title == "A Great Paper"
