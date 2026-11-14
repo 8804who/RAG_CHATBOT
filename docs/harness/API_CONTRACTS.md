@@ -1,0 +1,72 @@
+# API Contracts
+
+> Owners: contract design and change approval `system-architect` · backend implementation sync `backend-developer` · frontend type sync `frontend-developer`
+> **The code is canonical.** Request/response field details: `backend/app/schemes/requests.py`, `schemes/responses.py`, and the running OpenAPI at `http://localhost:8000/docs`. Frontend types: `frontend/src/lib/api/*.ts`.
+> This doc holds the endpoint list, auth, error rules, and the change procedure. Don't copy fields here.
+
+## Common rules
+
+- Base path: `/api/v1` (the frontend calls same-origin through the Vite proxy in dev or nginx in Docker; `apiFetch` uses `credentials: 'include'`).
+- Format: JSON requests and responses.
+- Auth: `session` cookie (issued in the Google OAuth callback). Protected endpoints check it via the `get_current_user` dependency; failure → 401.
+- Error response shape: `{"detail": "<message safe to show the user>"}`. Undefined exceptions → 500.
+
+## Endpoints
+
+| Method | Path | Auth | Request | Response | Main errors |
+|---|---|---|---|---|---|
+| GET | `/auth/google/login` | – | – | Redirect to Google | |
+| GET | `/auth/google/callback` | – | OAuth query | Sets the `session` cookie, then redirects | |
+| POST | `/auth/google/logout` | cookie | – | 204 | |
+| GET | `/auth/me` | ✔ | – | `UserResponse` | 401 |
+| GET | `/models` | – | – | `AvailableModelsResponse` (embedding, chat) | |
+| GET | `/collections` | ✔ | – | `CollectionsResponse` | 401 |
+| GET | `/collections/{name}` | ✔ | – | `CollectionDetailResponse` | 404 |
+| POST | `/collections` | ✔ | `CreateQdrantCollectionRequest` | 201 | 400 model/dimension mismatch, 409 duplicate |
+| PATCH | `/collections/{name}` | ✔ | `UpdateQdrantCollectionRequest` | 200 | 404 |
+| DELETE | `/collections/{name}` | ✔ | – | 204 | 404 |
+| POST | `/collections/{name}/documents` | ✔ | `IngestDocumentRequest` (`filename`, `content` — JSON text, not multipart) | 202 `UploadAcceptedResponse` | 400 |
+| GET | `/collections/{name}/documents` | ✔ | – | `DocumentsResponse` | 404 |
+| GET | `/collections/{name}/documents/{document_id}/status` | ✔ | – | `DocumentStatusResponse` | 404 |
+| GET | `/collections/{name}/documents/{document_id}/chunks` | ✔ | – | `DocumentChunksResponse` | 404 |
+| DELETE | `/collections/{name}/documents/{document_id}` | ✔ | – | 204 | 404 |
+| POST | `/chats` | ✔ | `CreateChatRequest` (`chat_model`, `collection_name?`) | 201 `ChatResponse` | 400 unsupported model, 400 collection missing |
+| POST | `/chats/{chat_id}/messages` | ✔ | `SendChatMessageRequest` (`query` 1–4000 chars) | `ChatMessageResponse` (`content`, `citations[]`) | 403 someone else's chat, 404 |
+| GET | `/usage/stats` | ✔ | – | `UsageStatsResponse` | 401 |
+
+Outside `/api`: health check `/health` and `/`, and Prometheus `/metrics` (root path, unauthenticated, not proxied by nginx; KI-020). These are excluded from the API call log and the uvicorn access log unless `LOG_INFRA_ENDPOINTS=true`.
+
+## Error codes (`backend/app/exceptions/`)
+
+| Exception | HTTP |
+|---|---|
+| `UnsupportedEmbeddingModelError`, `EmbeddingModelDimensionMismatchError` | 400 |
+| `EmbeddingGenerationError` | 502 |
+| `CollectionMetaNotFoundError`, `EmptyDocumentError`, `DenseVectorNotConfiguredError` | 400 |
+| `DocumentNotFoundError` | 404 |
+| `CollectionNotFoundError` | 404 |
+| `CollectionAlreadyExistsError` | 409 |
+| `ChatNotFoundError` | 404 |
+| `ChatAccessDeniedError` | 403 |
+| `UnsupportedChatModelError` | 400 |
+| Any other unhandled exception | 500 |
+
+## Access rules
+
+- Chats: owner only (`ChatAccessDeniedError`, IDOR protection).
+- Usage: the requester's own data only.
+- Collections and documents: no owner concept today; every logged-in user can read, edit, and delete → [KNOWN_ISSUES.md](KNOWN_ISSUES.md) KI-006.
+
+## Contract change procedure
+
+1. Propose the change → `system-architect` approves → record it in [DECISION_LOG.md](DECISION_LOG.md).
+2. Update this doc (one line in the change history).
+3. Assign **both** a `backend-developer` task (schema, endpoint, tests) and a `frontend-developer` task (`src/lib/api` types, hooks). Never complete with only one side changed.
+4. If backward compatibility breaks, `qa-engineer` runs regression tests.
+
+## Change history
+
+| Date | Change | Decision |
+|---|---|---|
+| 2026-11-14 | Harness adopted; contract documented from the current code | — |
+| 2026-11-14 | Root `/metrics` added (T-015); not part of `/api` | D-012 follow-up |

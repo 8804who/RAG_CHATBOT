@@ -36,10 +36,12 @@ postgres_data/
 redis_data/
 qdrant_data/
 
-# Claude Code
-CLAUDE.md
-.claude/
-docs/
+# Claude Code: version agents and rules; keep local settings, MCP config and skills private
+.claude/*
+!.claude/agents/
+!.claude/.rules/
+# Private job-search notes
+docs/career/
 
 # Alembic
 backend/app/migrations/versions/
