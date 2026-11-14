@@ -46,3 +46,8 @@ backend/app/migrations/versions/
 
 # cache
 .cache/
+# Added by code-review-graph
+.code-review-graph/
+.mcp.json
+# Load test reports
+loadtest/reports/
