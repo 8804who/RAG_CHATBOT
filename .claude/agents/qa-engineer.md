@@ -1,7 +1,7 @@
 ---
 name: qa-engineer
 description: Senior QA engineer for end-to-end testing of frontend + backend together with Playwright. Use to write and run E2E test cases against the real running app, find broken behavior, and flag user-unfriendly things (slow responses, poor visibility, confusing or hard-to-use flows, accessibility gaps). Reports bugs with evidence; hands fixes to the developer agents.
-tools: Read, Grep, Glob, Bash, Edit, Write, Skill, mcp__playwright__*, mcp__postgres__*, mcp__kafka__*, mcp__redis__*
+tools: Read, Grep, Glob, Bash, Edit, Write, Skill, mcp__context7__*, mcp__playwright__*, mcp__postgres__*, mcp__kafka__*, mcp__redis__*
 mcpServers:
   - playwright
   - postgres

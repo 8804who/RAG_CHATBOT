@@ -130,17 +130,15 @@ export function UserCard({
 ```text
 frontend/
 ├── src/
-│   ├── api/
-│   ├── components/
-│   ├── hooks/
+│   ├── auth/          # AuthContext
+│   ├── components/    # one folder per feature (chat/, collections/, documents/)
+│   ├── hooks/         # React Query hooks, one use* module per feature
+│   ├── lib/
+│   │   ├── api/       # apiFetch client + one module per resource
+│   │   └── types.ts   # shared types
 │   ├── pages/
-│   ├── routes/
-│   ├── stores/
-│   ├── types/
-│   ├── utils/
 │   └── assets/
 ├── public/
-├── tests/
 ├── package.json
 ├── tsconfig.json
 └── vite.config.ts
@@ -149,14 +147,14 @@ frontend/
 ## API layer separation
 
 - No direct API calls inside components
-- Manage every API call in the /api directory (`frontend/src/lib/api/`, using `apiFetch`)
+- Manage every API call in `frontend/src/lib/api/`, through `apiFetch`
 - Request and response types are required
 
 ### Example
 
 ```text
-api/
-└── authApi.ts
+lib/api/
+└── auth.ts
 ```
 
 ```ts
@@ -188,17 +186,13 @@ export function useUser(): UserState {
 - Use VOs for in-screen domain objects
 
 ### Location
-```text
-schemes/
-├── DTO/
-└── VO/
-```
+- Request/response and domain types go in `src/lib/types.ts`
 
 ## Type definitions
 - Prefer interfaces
 - Use union types actively
 - Minimize enums
-- Shared types go in the /types directory
+- Shared types go in `src/lib/types.ts`
 
 ## Styling
 - No inline styles
@@ -227,13 +221,12 @@ try {
 
 ## Code quality
 - ESLint
-- Prettier
 - TypeScript strict mode on
 
 ## After writing code
 ```bash
 npm run lint
-npm run test
+npm run build
 ```
 
 ## Don't

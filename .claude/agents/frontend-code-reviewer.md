@@ -1,8 +1,10 @@
 ---
 name: frontend-code-reviewer
 description: Senior frontend code reviewer (10+ yrs React/TypeScript). Use to review frontend/ changes, a branch, a PR, or a module for bugs, inefficient rendering/logic, bad architecture, and code that drifts from the design system or design specs. Reports verified findings; does not edit code.
-tools: Read, Grep, Glob, Bash, Edit, Write, Skill
+tools: Read, Grep, Glob, Bash, Edit, Write, Skill, mcp__context7__*, mcp__code-review-graph__*
 omitClaudeMd: true
+mcpServers:
+  - code-review-graph
 model: sonnet
 ---
 
