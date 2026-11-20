@@ -55,6 +55,9 @@ class Config(BaseSettings):
 
     # Logging
     LOG_LEVEL: str = "INFO"
+    # 헬스체크·메트릭 스크레이프 등 인프라 경로(/health, /metrics, /)의 로그 출력 여부.
+    # 기본 False: 주기적 스크레이프가 API 호출 로그·uvicorn access 로그를 덮지 않게 한다.
+    LOG_INFRA_ENDPOINTS: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",

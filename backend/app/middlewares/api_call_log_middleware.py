@@ -63,7 +63,10 @@ class ApiCallLogMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        if request.url.path in API_CALL_LOG_EXCLUDED_PATHS:
+        if (
+            not config.LOG_INFRA_ENDPOINTS
+            and request.url.path in API_CALL_LOG_EXCLUDED_PATHS
+        ):
             return await call_next(request)
 
         called_api = f"{request.method} {request.url.path}"
