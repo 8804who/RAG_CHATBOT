@@ -32,8 +32,8 @@ the chatbot's actual answer) in the HTML report, even when not asserted.
 
 ## Prerequisites
 
-1. Infra + backend running per the repo root `CLAUDE.md` (`docker compose up
-   -d`, `uv run alembic upgrade head`, then `uv run uvicorn main:app --port
+1. Infra + backend running per the repo root `CLAUDE.md` (`docker compose -f
+   system-docker-compose.yaml up -d`, `uv run alembic upgrade head`, then `uv run uvicorn main:app --port
    8000` from `backend/app`). Ingest workers aren't needed to *run* this
    suite, only to have ingested your eval documents beforehand.
 2. A Qdrant collection with your eval documents already ingested (via the

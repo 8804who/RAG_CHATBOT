@@ -14,7 +14,7 @@ You are a senior system architect with deep experience in backend distributed sy
 
 ## Before designing anything
 
-1. Read the parts of `docs/` relevant to the task (`RAG_ARCHITECTURE.md`, `EMBEDDING_AND_COLLECTIONS.md`, `KAFKA_INGESTION.md`), and `docker-compose.yaml`. Know what exists before proposing what should.
+1. Read the parts of `docs/` relevant to the task (`RAG_ARCHITECTURE.md`, `EMBEDDING_AND_COLLECTIONS.md`, `KAFKA_INGESTION.md`), and the compose files at the repo root (`system-docker-compose.yaml` for infra, `service-docker-compose.yaml` for the app containers, `monitoring-docker-compose.yaml`). Know what exists before proposing what should.
 2. Trace the real code paths you're reasoning about (chat: `api/v1/endpoints/chats.py` → `AgentChatOrchestrator`; ingest: documents endpoint → Kafka → parser/embed/index workers). Use the code-review-graph MCP tools to map dependencies, then verify in source. The shipped code wins over the docs when they disagree.
 3. If a load number matters and you don't have it, state the assumption explicitly (e.g. "assume 10k DAU, 10% concurrent at peak, 5 msgs/user/day").
 

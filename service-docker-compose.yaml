@@ -1,0 +1,60 @@
+# 앱 스택 (api, frontend, ingest-worker). 모두 비root 컨테이너로 실행한다.
+# 인프라 스택(system-docker-compose.yaml)의 rag_chatbot_system_default 네트워크에 붙으므로 인프라를 먼저 띄워야 한다.
+#   docker compose -f system-docker-compose.yaml up -d
+#   docker compose -f service-docker-compose.yaml up -d --build
+# 별도 프로젝트 이름이라 down / --remove-orphans 가 인프라 rag_chatbot_system 프로젝트를 건드리지 않는다.
+name: rag_chatbot_service
+
+x-backend: &backend
+  build:
+    context: ./backend/app
+    dockerfile: WorkerImage.Dockerfile
+  image: rag_chatbot_backend
+  restart: unless-stopped
+  env_file:
+    - backend/app/.env
+  environment: &backend-env
+    POSTGRES_HOST: postgres
+    REDIS_HOST: redis
+    QDRANT_URL: http://qdrant:6333
+    KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    # fastembed는 HF_HOME이 아니라 FASTEMBED_CACHE_PATH(기본값 /tmp/fastembed_cache)를
+    # 따로 쓰므로 캐시 볼륨은 여기에 마운트해야 재시작해도 모델을 다시 받지 않는다.
+    FASTEMBED_CACHE_PATH: /cache/fastembed
+    HF_HUB_DISABLE_XET: "1"
+    # HF Hub의 blobs+snapshots 심링크 캐시 구조에서 onnxruntime의 external-data 경로
+    # 검증이 "External data path escapes model directory"로 실패하는 경우가 있어,
+    # 심링크 대신 스냅샷 디렉터리에 실제 파일을 두도록 강제한다.
+    HF_HUB_DISABLE_SYMLINKS: "1"
+  volumes:
+    - fastembed_cache:/cache/fastembed
+
+services:
+  api:
+    <<: *backend
+    container_name: api
+    command: ["sh", "-c", "alembic upgrade head && exec uvicorn main:app --host 0.0.0.0 --port 8000"]
+    ports:
+      - "8000:8000"
+
+  ingest-worker:
+    <<: *backend
+    container_name: ingest-worker
+    command: ["python", "-m", "workers.ingest_worker"]
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "5173:8080"
+    depends_on:
+      - api
+
+networks:
+  default:
+    name: rag_chatbot_system_default
+    external: true
+
+volumes:
+  fastembed_cache:
