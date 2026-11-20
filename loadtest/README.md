@@ -4,7 +4,7 @@ Load tests for the chat API, with the LLM replaced by a mock, so they measure on
 
 ## Prerequisites
 
-1. Infra: `docker compose up -d` (repo root)
+1. Infra: `docker compose -f system-docker-compose.yaml up -d` (repo root)
 2. DB schema: `uv run alembic upgrade head` (`backend/app`)
 3. The `rag_eval_papers` collection is ingested (see [eval/README.md](../eval/README.md)). Pinned chats fail with `empty citations (pinned)` if it is empty.
 4. Dependencies: `uv sync` (`loadtest/`)
