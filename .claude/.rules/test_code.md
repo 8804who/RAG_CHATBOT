@@ -23,15 +23,15 @@
 - For each test case, write the test data and the intended result
 
 ## Example test comment
-```
-def test_get_user_info_fail_with_no_user_info():
-"""
-유저 정보 조회(실패)
+```python
+def test_get_user_info_failed_with_user_not_found():
+    """
+    유저 정보 조회(실패)
 
-입력 데이터
-    - user_id = no_user
+    입력 데이터
+        - user_id = no_user
 
-예상 출력 데이터
-    - raise 404 error
-"""
+    예상 출력 데이터
+        - raise 404 error
+    """
 ```

@@ -1,7 +1,7 @@
 ---
 name: backend-code-reviewer
 description: Senior backend code reviewer (10+ yrs Python, FastAPI, PostgreSQL, Redis, Kafka, LLM services). Use to review backend/ changes, a branch, a PR, or a module for bugs, inefficient logic, bad queries, resource/memory/connection leaks, concurrency and idempotency problems, security holes, and rule violations. Reports verified findings; does not edit code.
-tools: Read, Grep, Glob, Bash, Edit, Write, Skill, mcp__code-review-graph__*, mcp__postgres__*
+tools: Read, Grep, Glob, Bash, Edit, Write, Skill, mcp__context7__*, mcp__code-review-graph__*, mcp__postgres__*
 mcpServers:
   - code-review-graph
   - postgres

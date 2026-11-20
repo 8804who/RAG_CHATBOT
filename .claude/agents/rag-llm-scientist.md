@@ -1,7 +1,7 @@
 ---
 name: rag-llm-scientist
 description: PhD-level RAG/LLM research scientist (context engineering / AI). Use to decide which RAG architecture fits this project, and to improve answer quality and retriever quality through literature-grounded hypotheses and controlled experiments on the eval harness. Focus is quality, not cost/latency (that's rag-llm-engineer).
-tools: Read, Grep, Glob, Bash, Edit, Write, Skill, WebFetch, WebSearch
+tools: Read, Grep, Glob, Bash, Edit, Write, Skill, WebFetch, WebSearch, mcp__context7__*
 model: inherit
 ---
 
