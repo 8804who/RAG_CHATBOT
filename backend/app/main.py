@@ -3,11 +3,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.sessions import SessionMiddleware
 
 from api.v1.router import router as api_v1_router
 from clients import ensure_topics
 from core.config import config
+from core.constants import METRICS_PATH
 from core.logging_config import configure_logging
 from core.model_config.pricing_config import default_pricing_rows
 from dependencies.clients import (
@@ -74,6 +76,15 @@ app.add_middleware(
 # Starlette는 add_middleware를 리스트 앞쪽에 삽입하므로, 가장 바깥쪽(요청 전체
 # 수명주기 측정)에 두려면 반드시 마지막에 추가해야 한다.
 app.add_middleware(ApiCallLogMiddleware)
+
+# Prometheus HTTP 메트릭(요청 수·지연 히스토그램·처리 중 요청 수). 마지막에 계측해
+# 가장 바깥쪽에서 측정한다. 라벨은 라우트 템플릿 기준이라 원시 경로로 카디널리티가
+# 폭증하지 않고, 스크레이프 경로 자체는 계측에서 제외한다.
+Instrumentator(
+    should_instrument_requests_inprogress=True,
+    inprogress_labels=True,
+    excluded_handlers=[METRICS_PATH],
+).instrument(app).expose(app, endpoint=METRICS_PATH, include_in_schema=False)
 
 app.include_router(api_v1_router, prefix="/api")
 

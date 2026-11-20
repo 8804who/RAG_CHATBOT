@@ -19,8 +19,15 @@ DEFAULT_CHAT_MAX_COMPLETION_TOKENS = 1024
 API_CALL_STATUS_SUCCESS = "success"
 API_CALL_STATUS_FAILED = "failed"
 
-# API 호출 로그에서 제외할 경로(헬스체크 등 인프라용, 사용자 API 호출이 아님)
-API_CALL_LOG_EXCLUDED_PATHS = frozenset({"/health", "/"})
+# Prometheus 스크레이프 경로. /api 밖(루트)에 두어 외부 /api 프록시로 노출되지 않게 한다.
+METRICS_PATH = "/metrics"
+
+# API 호출 로그에서 제외할 경로(헬스체크·메트릭 스크레이프 등 인프라용, 사용자 API 호출이 아님)
+# LOG_INFRA_ENDPOINTS=True면 이 경로들도 로그를 남긴다.
+API_CALL_LOG_EXCLUDED_PATHS = frozenset({"/health", "/", METRICS_PATH})
+
+# uvicorn 요청(access) 로거 이름. 인프라 경로 필터를 붙이는 대상.
+UVICORN_ACCESS_LOGGER = "uvicorn.access"
 
 # 에이전트 한 턴의 최대 그래프 스텝 수(도구 호출 왕복마다 여러 스텝 소모).
 # 무한/과도 루프로 인한 비용 폭주를 막는 안전장치.

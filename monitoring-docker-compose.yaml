@@ -1,0 +1,131 @@
+# 로컬 모니터링 스택 (Prometheus + Grafana + exporter, Loki + Alloy 로그 수집).
+# 인프라 스택(system-docker-compose.yaml)의 rag_chatbot_system_default 네트워크에 붙으므로 인프라 스택을 먼저 띄워야 한다.
+#   docker compose -f system-docker-compose.yaml up -d
+#   docker compose -f monitoring-docker-compose.yaml up -d
+# 별도 프로젝트 이름이라 down / --remove-orphans 가 인프라 rag_chatbot_system 프로젝트를 건드리지 않는다.
+# 비밀값은 docker.env 로만 주입한다. 호스트 포트는 prometheus(9090), grafana(3000)만 127.0.0.1 에 연다.
+name: rag_chatbot_monitoring
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: prometheus
+    restart: unless-stopped
+    env_file:
+      - docker.env
+    # Qdrant API 키를 파일로 떨궈 credentials_file 로 읽게 한다 (설정 파일에 키를 넣지 않기 위함).
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        : "$${QDRANT__SERVICE__API_KEY:?QDRANT__SERVICE__API_KEY missing in docker.env}" &&
+        printf '%s' "$$QDRANT__SERVICE__API_KEY" > /tmp/qdrant_api_key &&
+        exec /bin/prometheus
+        --config.file=/etc/prometheus/prometheus.yml
+        --storage.tsdb.path=/prometheus
+        --storage.tsdb.retention.time=7d
+    ports:
+      - "127.0.0.1:9090:9090"
+    # 호스트의 API(:8000) 스크레이프용. macOS는 기본 지원, Linux 호환을 위해 명시.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:12.0.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - loki
+
+  loki:
+    image: grafana/loki:3.6.7
+    container_name: loki
+    restart: unless-stopped
+    # 호스트 포트 없음. Grafana 는 loki:3100 으로 접근한다.
+    command:
+      - -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./monitoring/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.12.2
+    container_name: alloy
+    restart: unless-stopped
+    # 도커 소켓을 읽어야 해서 root 로 실행한다. Docker Desktop 은 소켓 GID 를 맞출 수 없어 non-root 가 불가능하다.
+    # 소켓은 ro 마운트지만 Docker API 자체는 쓰기도 가능하므로 로컬 개발 전용이다. UI(:12345) 호스트 포트 없음.
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: postgres-exporter
+    restart: unless-stopped
+    env_file:
+      - docker.env
+    # 사용자/비밀번호를 URI 에 넣지 않고 분리해 특수문자 URL 인코딩 문제를 피한다.
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        export DATA_SOURCE_USER="$$POSTGRES_USER"
+        DATA_SOURCE_PASS="$$POSTGRES_PASSWORD"
+        DATA_SOURCE_URI="postgres:5432/$$POSTGRES_DB?sslmode=disable" &&
+        exec /bin/postgres_exporter
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    container_name: redis-exporter
+    restart: unless-stopped
+    env_file:
+      - docker.env
+    environment:
+      REDIS_ADDR: redis://redis:6379
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.9.0
+    container_name: kafka-exporter
+    restart: unless-stopped
+    # 컨슈머 그룹: parser-workers, embed-workers, index-workers
+    command:
+      - --kafka.server=kafka:29092
+      - --kafka.version=3.9.0
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true
+    # 호스트 포트 없음 (8080 은 kafka_ui 가 사용). /dev/disk 는 Docker Desktop 에 없어서 뺐다.
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+
+networks:
+  default:
+    name: rag_chatbot_system_default
+    external: true
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  loki_data:

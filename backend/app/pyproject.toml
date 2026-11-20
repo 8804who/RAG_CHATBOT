@@ -19,6 +19,7 @@ dependencies = [
     "langfuse>=4.15.4",
     "langgraph>=1.2.11",
     "openai>=1.0.0",
+    "prometheus-fastapi-instrumentator>=8.1.0",
     "pydantic-settings>=2.14.1",
     "pytest>=9.0.3",
     "qdrant-client>=1.18.0",

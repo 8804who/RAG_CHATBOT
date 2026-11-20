@@ -189,3 +189,28 @@ def test_dispatch_skip_with_excluded_path(monkeypatch, caplog):
     assert response.status_code == 200
     resolve_mock.assert_not_called()
     assert caplog.records == []
+
+
+def test_dispatch_success_with_excluded_path_logging_enabled(monkeypatch, caplog):
+    """
+    인프라 경로 로그 노출(성공)
+
+    입력 데이터
+        - LOG_INFRA_ENDPOINTS = True, GET /metrics
+
+    예상 출력 데이터
+        - 제외 경로여도 API 호출 완료 로그 1건 기록
+    """
+    monkeypatch.setattr(config, "LOG_INFRA_ENDPOINTS", True)
+    monkeypatch.setattr(
+        "middlewares.api_call_log_middleware._resolve_user_id",
+        AsyncMock(return_value=None),
+    )
+    middleware = ApiCallLogMiddleware(app=AsyncMock())
+    call_next = AsyncMock(return_value=Response(status_code=200))
+
+    with caplog.at_level(logging.INFO, logger=_LOGGER_NAME):
+        asyncio.run(middleware.dispatch(_request(path="/metrics"), call_next))
+
+    assert len(caplog.records) == 1
+    assert "GET /metrics" in caplog.records[0].getMessage()
