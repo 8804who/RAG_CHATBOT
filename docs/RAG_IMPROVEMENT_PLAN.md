@@ -70,14 +70,16 @@
 
 ### 평가 하네스
 
-| # | 문제 | 유형 | 근거 |
-|---|---|---|---|
-| P1 | golden `expectedDocumentIds`가 낡았다(2026-11-14 재인제스트) | dataset | precision 0/9, baseline-r1.md post-hoc notes. 현재 id: Transformer `335fdb77…`, BERT `9d4573d1…`, GPT `adc3e49f…` |
-| P2 | judge가 정답 일치만 보고 근거 충실성은 보지 않는다. 기억으로 쓴 답도 만점을 받는다 | eval | `eval/src/judge.ts:5-10,64`: 질문, 정답, 답변만 넘기고 검색 컨텍스트는 넘기지 않는다. 도구 0회인 4케이스가 0.8~1.0을 받았다 |
-| P3 | 답에 쓰인 근거가 실제로 보였는지 측정하지 않는다 | eval | [프로브] 인용 snippet(=에이전트가 본 300자) 안에 정답 사실이 있는 경우: r1 2/9, r2 2/9(bert-masking, gpt-ablation). judge 평균은 0.91/0.94 |
-| P4 | judge 모델이 채팅 모델과 같다(`gpt-4o-mini`) | eval | 자기 선호 편향 위험(Panickssery et al., 2024, *LLM Evaluators Recognize and Favor Their Own Generations*, 중간 강도의 근거) |
-| P5 | 9건, 영어만, 케이스당 문서 1개, 청크 라벨 없음. 답 없음, 다문서, 한국어 케이스도 없다 | eval | `eval/fixtures/golden-dataset.json`. 케이스 하나가 11.1%p이고 회차 간 judge 차이가 0.033이다. 유명 논문이라 모델이 이미 외우고 있다(Mallen et al., 2023, *When Not to Trust Language Models*: 인기 있는 지식일수록 파라메트릭 기억이 강하다) |
-| P6 | `eval/README.md`의 청크 수가 낡았다(7/5/5라고 적혀 있지만 실제는 19/31/19). 그 숫자로 정한 precision 상한 설명(0.5)도 더는 맞지 않는다 | doc | `eval/README.md` "Precision ceiling" 문단. 문서 담당자가 고쳐야 한다 |
+P1~P6은 v2 하네스(PR #7, T-030/T-031)로 해결했거나 대부분 해결했다. 상태 열에 남은 일을 적었다.
+
+| # | 문제 | 유형 | 근거 | 상태 (2026-11-21) |
+|---|---|---|---|---|
+| P1 | golden `expectedDocumentIds`가 낡았다(2026-11-14 재인제스트) | dataset | precision 0/9, baseline-r1.md post-hoc notes. 현재 id: Transformer `335fdb77…`, BERT `9d4573d1…`, GPT `adc3e49f…` | **해결.** v2 fixture는 `expectedDocumentTitles`(파일명)로 라벨링하고, 실행할 때 `document_progress_status`(INDEXED)에서 id로 해석한다. 해석이 안 되면 케이스 실패. 재인제스트해도 깨지지 않는다 |
+| P2 | judge가 정답 일치만 보고 근거 충실성은 보지 않는다. 기억으로 쓴 답도 만점을 받는다 | eval | `eval/src/judge.ts:5-10,64`: 질문, 정답, 답변만 넘기고 검색 컨텍스트는 넘기지 않는다. 도구 0회인 4케이스가 0.8~1.0을 받았다 | **해결.** judge가 검색된 청크를 함께 보고 correctness와 groundedness를 따로 채점한다(v2 전체 0.677 / 0.589). 남은 한계: judge가 보는 건 300자 snippet이다(P15) |
+| P3 | 답에 쓰인 근거가 실제로 보였는지 측정하지 않는다 | eval | [프로브] 인용 snippet(=에이전트가 본 300자) 안에 정답 사실이 있는 경우: r1 2/9, r2 2/9(bert-masking, gpt-ablation). judge 평균은 0.91/0.94 | **대부분 해결.** groundedness 점수와 케이스별 도구 호출 순서, 검색된 doc/chunk id를 기록한다. 별도의 answer-in-context 비율 지표는 아직 없다 |
+| P4 | judge 모델이 채팅 모델과 같다(`gpt-4o-mini`) | eval | 자기 선호 편향 위험(Panickssery et al., 2024, *LLM Evaluators Recognize and Favor Their Own Generations*, 중간 강도의 근거) | **해결.** judge 기본값을 상위 모델 `gpt-6.2-sol`로 바꿨다(`JUDGE_MODEL`로 변경 가능). 남은 일: 같은 벤더라 다른 계열 judge와 사람 채점 20건으로 일치도 확인, seed 고정 |
+| P5 | 9건, 영어만, 케이스당 문서 1개, 청크 라벨 없음. 답 없음, 다문서, 한국어 케이스도 없다 | eval | `eval/fixtures/golden-dataset.json`. 케이스 하나가 11.1%p이고 회차 간 judge 차이가 0.033이다. 유명 논문이라 모델이 이미 외우고 있다(Mallen et al., 2023, *When Not to Trust Language Models*: 인기 있는 지식일수록 파라메트릭 기억이 강하다) | **대부분 해결.** v2 110건: ko-rag 30, en-rag 30, ko-nonrag 15, en-nonrag 15, tool 20. 모델이 모르는 2025~2026년 사실 문서 10개(`rag_eval_v2`, 출처 URL 포함), 문서 밖 질문(not_in_docs), 다문서 케이스 4건. 남은 일: 청크 단위 라벨, dev/test 분리, ~150건 목표, 대부분 사실이 출처 1개로만 확인됨 |
+| P6 | `eval/README.md`의 청크 수가 낡았다(7/5/5라고 적혀 있지만 실제는 19/31/19). 그 숫자로 정한 precision 상한 설명(0.5)도 더는 맞지 않는다 | doc | `eval/README.md` "Precision ceiling" 문단. 문서 담당자가 고쳐야 한다 | **해결.** README에 19/31/19와 v2 컬렉션의 precision 상한(~1/7, P23)을 적었다 |
 
 ### 검색기
 
