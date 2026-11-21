@@ -46,3 +46,30 @@
 - Follow-up: T-024 review
 
 
+
+
+### 2026-11-21 · rag-llm-engineer · T-030
+- Work: eval v2 harness: `EvalCase` schema, title→document_id resolution from `document_progress_status` (unresolved/ambiguous = case error), recall/precision from citations, judge default `gpt-6.2-sol` (JUDGE_MODEL override) scoring correctness + groundedness with retrieved snippets, behavior/tool assertions (expected/forbidden tools, expectedArgs with safe arithmetic parser, maxToolCalls, no_search/web_search/not_in_docs), tool sequence per case in results, `EVAL_DATASET`, per-dataset MD table
+- Files: `eval/src/{types,metrics,judge,db,api,results-reporter}.ts`, `eval/tests/rag-eval.spec.ts`, `eval/tests/metrics.unit.spec.ts` (new), `eval/README.md`, `eval/.env.example`
+- Deliverables: the files above
+- Verification: PM re-ran `npx tsc --noEmit` OK and `metrics.unit.spec.ts` 3/3 pass; PM confirmed `gpt-6.2-sol` is listed by /v1/models for the key. Agent-reported 2-case smoke: tool case pass, en-rag case fail (agent answered without search_documents)
+- Issues found: citations = all chunks returned by search_documents that turn (agent_orchestrator.py:263), 300-char snippets; `golden-dataset.json` kept (loadtest/core/config.py reads it); maxElapsedMs/maxTotalTokens no longer asserted; unresolved-title path untested
+- Follow-up: T-031 full run
+- Cost: 113,439 subagent tokens, 29 tool uses, 322 s
+
+### 2026-11-21 · rag-llm-scientist · T-029
+- Work: 10 sourced source docs (5 EN, 5 KO; 2025-2026 events) + 110 eval cases in the v2 schema
+- Files: `eval/test-data/v2/*.md` (10), `eval/fixtures/v2/{ko-rag,en-rag,ko-nonrag,en-nonrag,tool}.json`
+- Deliverables: ko-rag 30, en-rag 30, ko-nonrag 15, en-nonrag 15, tool 20 (PM re-counted; JSON loads)
+- Verification: agent-reported json.tool valid, ids unique, titles resolve, sourceUrls present. Nothing run against the live API
+- Issues found: facts fetched via a summarizing WebFetch, most single-source (World Cup final, KBO MVP, Seoul mayor, vote count cross-checked); several unverifiable facts dropped (listed in report)
+- Follow-up: T-031 ingest + run
+- Cost: 103,708 subagent tokens, 37 tool uses, 537 s
+
+### 2026-11-21 · rag-llm-engineer · T-031
+- Work: ingested 10 v2 docs into `rag_eval_v2` (`npm run ingest:v2`, idempotent), ran full v2 baseline (110 cases, judge gpt-6.2-sol, chat gpt-4o-mini, 1 run)
+- Files: `eval/scripts/ingest-v2.ts`, `eval/src/db.ts`, `eval/package.json`, `eval/tsconfig.json`, `eval/README.md`, `eval/results/2026-11-21-baseline-v2.{json,md}`
+- Verification: 110/110 case records, 0 errored, 36 pass; `npx tsc --noEmit` OK; unit 3/3. PM re-ran tsc + unit before PR #7
+- Issues found: only 24/60 RAG cases call search_documents (rest tavily) → P20; 8 nonrag forbidden tavily, 3 over maxToolCalls → P21; 2 calc arg errors → P22; precision ceiling ~1/7 on 15-chunk collection → P23 (threshold decision open)
+- Follow-up: 2 more v2 runs for variance; A1 force-search experiment
+- Shipped: PR #7 (harness), PR #8 (baselines), docs PR (plan + harness docs)

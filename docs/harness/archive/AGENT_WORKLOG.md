@@ -197,3 +197,18 @@
 - Issues found: KI-023 (5 stall windows push chat p95 over gate; cause unproven, embedding-in-API suspected, KI-011), KI-024 (9 `http 0` failures)
 - Follow-up: decide rerun with Locust on another machine vs `system-architect` on embedding offload
 - Cost: 128,545 tokens / 51 tool uses / 3,329 s
+### 2026-11-21 · rag-llm-engineer · T-027
+- Work: run eval baseline, add results export to eval/
+- Files: `eval/src/results-reporter.ts` (new), `eval/playwright.config.ts`, `eval/src/{types,db}.ts`, `eval/tests/rag-eval.spec.ts`, `eval/README.md`, `eval/results/2026-11-21-baseline-r{1,2}.{json,md}`
+- Verification: 2 live runs; 0/9 pass (golden expectedDocumentIds stale after 2026-11-14 re-ingest), judge 0.911/0.944, mean tokens 8344/8082, p95 10840/11223 ms. PM re-ran `npx tsc --noEmit` OK
+- Issues found: stale golden ids; scores don't separate hit/miss (KI-004 cutoff won't help); 300-char snippets cause repeated searches (`tools.py:23,34`); 4/9 cases answer without tools yet judge scores high; afterAll `console.table` prints only last case
+- Follow-up: T-028
+- Cost: 120378 tokens, 42 tool uses, 541 s
+
+### 2026-11-21 · rag-llm-scientist · T-028
+- Work: diagnose retriever/embedding/agent quality from T-027 evidence + code + offline probe; write improvement plan
+- Files: `docs/RAG_IMPROVEMENT_PLAN.md` (new). PM added `eval/results/2026-11-21-probe/{probe,tok}.py` (scratchpad copy, key → env var) and fixed stale chunk counts in `eval/README.md`
+- Verification: offline probe reproduced live `query_points` top-8 on 72/72 (as reported); n=9, unreviewed regex labels → directional only. No eval runs
+- Issues found: KI-025..KI-029 (stale golden ids, judge blind to grounding, e5 512-token truncation, 300-char snippets, BM25 hurts Korean hybrid); GPT paper never says "GPT" so BERT outranks it
+- Follow-up: plan §4 experiment order, starting with eval fixes E1-E6
+- Cost: 113359 tokens, 41 tool uses, 897 s
