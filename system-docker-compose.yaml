@@ -1,6 +1,3 @@
-# 인프라 스택 (Postgres, Redis, Qdrant, Kafka + UI). 앱 컨테이너는 service-docker-compose.yaml.
-# 프로젝트 이름을 고정해 볼륨(rag_chatbot_system_*)과 네트워크(rag_chatbot_system_default) 이름을 정한다.
-#   docker compose -f system-docker-compose.yaml up -d
 name: rag_chatbot_system
 
 services:

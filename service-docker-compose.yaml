@@ -1,8 +1,3 @@
-# 앱 스택 (api, frontend, ingest-worker). 모두 비root 컨테이너로 실행한다.
-# 인프라 스택(system-docker-compose.yaml)의 rag_chatbot_system_default 네트워크에 붙으므로 인프라를 먼저 띄워야 한다.
-#   docker compose -f system-docker-compose.yaml up -d
-#   docker compose -f service-docker-compose.yaml up -d --build
-# 별도 프로젝트 이름이라 down / --remove-orphans 가 인프라 rag_chatbot_system 프로젝트를 건드리지 않는다.
 name: rag_chatbot_service
 
 x-backend: &backend
