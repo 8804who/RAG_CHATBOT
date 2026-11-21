@@ -4,7 +4,7 @@ import type { ChatMessageApiResponse } from './types'
 
 export async function createChat(
   request: APIRequestContext,
-  collectionName: string,
+  collectionName: string | null,
   chatModel: string,
 ): Promise<string> {
   const res = await request.post('/api/v1/chats', {

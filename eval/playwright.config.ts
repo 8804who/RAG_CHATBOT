@@ -14,7 +14,7 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   timeout: 60_000,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [['list'], ['html', { open: 'never' }], ['./src/results-reporter.ts']],
   use: {
     baseURL: process.env.API_BASE_URL ?? 'http://localhost:8000',
   },

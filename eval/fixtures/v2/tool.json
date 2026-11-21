@@ -1,0 +1,519 @@
+[
+  {
+    "id": "tool-en-calc-basic",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "Use the calculator: what is 1234 * 5678?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "7,006,652.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [
+      "calculate"
+    ],
+    "forbiddenTools": [
+      "search_documents",
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "calculate",
+        "arg": "expression",
+        "evaluatesTo": 7006652
+      }
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-en-calc-discount",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "An item costs 250000 won and is discounted by 15%. Calculate the final price.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "212,500 won.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [
+      "calculate"
+    ],
+    "forbiddenTools": [
+      "search_documents",
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "calculate",
+        "arg": "expression",
+        "evaluatesTo": 212500
+      }
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-en-usage",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "How many tokens and requests have I used so far?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Reports the user's usage stats returned by get_my_usage_stats.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [
+      "get_my_usage_stats"
+    ],
+    "forbiddenTools": [
+      "search_documents",
+      "tavily_search"
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-en-arxiv",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "Find recent arXiv papers on evaluating retrieval-augmented generation.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Lists arXiv papers returned by arxiv_search with titles/links.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [
+      "arxiv_search"
+    ],
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-en-tavily",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "Search the web for today's top technology news headlines.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Summarizes current web results from tavily_search.",
+    "expectedBehavior": "web_search",
+    "expectedTools": [
+      "tavily_search"
+    ],
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-en-route-v2-ballondor",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "Check my documents: who won the 2026 Ballon d'Or?",
+    "collectionName": null,
+    "expectedDocumentTitles": [
+      "ballon-dor-2026.md"
+    ],
+    "expectedAnswer": "Harry Kane (England, Bayern Munich), 1,055 points.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "search_documents",
+        "arg": "collection_name",
+        "equals": "rag_eval_v2"
+      }
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "tool-en-route-papers-bert",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "According to the BERT paper in my documents, how large is the WordPiece vocabulary?",
+    "collectionName": null,
+    "expectedDocumentTitles": [
+      "BERT.pdf"
+    ],
+    "expectedAnswer": "30,000 tokens.",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1810.04805"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "search_documents",
+        "arg": "collection_name",
+        "equals": "rag_eval_papers"
+      }
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "tool-en-route-v2-olympics",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "From my documents, how many gold medals did Norway win at the 2026 Winter Olympics?",
+    "collectionName": null,
+    "expectedDocumentTitles": [
+      "winter-olympics-2026.md"
+    ],
+    "expectedAnswer": "18 gold medals (41 medals in total).",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics",
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics_medal_table"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "search_documents",
+        "arg": "collection_name",
+        "equals": "rag_eval_v2"
+      }
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "tool-en-search-then-calc",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "Look up the 2026 Ballon d'Or points of Harry Kane and Kylian Mbappé in the documents, then use the calculator to get the difference.",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "ballon-dor-2026.md"
+    ],
+    "expectedAnswer": "Kane 1,055 − Mbappé 1,027 = 28 points.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents",
+      "calculate"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "calculate",
+        "arg": "expression",
+        "evaluatesTo": 28
+      }
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "tool-en-chitchat-no-tools",
+    "dataset": "tool",
+    "lang": "en",
+    "query": "Good morning! Hope you're doing well.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "A friendly greeting with no tool calls.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [],
+    "forbiddenTools": [
+      "search_documents",
+      "calculate",
+      "get_my_usage_stats",
+      "arxiv_search",
+      "tavily_search"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-ko-calc-margin",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "계산기로 17287513 - 14395639 를 계산해줘.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "2,891,874.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [
+      "calculate"
+    ],
+    "forbiddenTools": [
+      "search_documents",
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "calculate",
+        "arg": "expression",
+        "evaluatesTo": 2891874
+      }
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-ko-calc-basic",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "12의 제곱에 7을 더한 값을 계산해줘.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "151.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [
+      "calculate"
+    ],
+    "forbiddenTools": [
+      "search_documents",
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "calculate",
+        "arg": "expression",
+        "evaluatesTo": 151
+      }
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-ko-usage",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "내 사용량 통계 좀 보여줘.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "get_my_usage_stats 결과로 사용량을 알려준다.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [
+      "get_my_usage_stats"
+    ],
+    "forbiddenTools": [
+      "search_documents",
+      "tavily_search"
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-ko-arxiv",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "arXiv에서 다국어 임베딩 모델 관련 논문을 찾아줘.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "arxiv_search 결과의 논문 제목과 링크를 정리한다.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [
+      "arxiv_search"
+    ],
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-ko-tavily",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "지금 서울 미세먼지 농도를 웹에서 찾아줘.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "tavily_search 웹 결과를 근거로 답한다.",
+    "expectedBehavior": "web_search",
+    "expectedTools": [
+      "tavily_search"
+    ],
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 2,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "tool-ko-route-v2-kbo",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "내 문서에서 2025년 한국시리즈 우승팀을 찾아줘.",
+    "collectionName": null,
+    "expectedDocumentTitles": [
+      "kbo-2025-season.md"
+    ],
+    "expectedAnswer": "LG 트윈스(한화 이글스에 4승 1패).",
+    "sourceUrls": [
+      "https://www.newsis.com/view/NISX20251031_0003385921",
+      "https://sports.khan.co.kr/article/202511241520003"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "search_documents",
+        "arg": "collection_name",
+        "equals": "rag_eval_v2"
+      }
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "tool-ko-route-papers-gpt",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "업로드한 논문 중 GPT 논문에서 BPE 병합 횟수는 몇이야?",
+    "collectionName": null,
+    "expectedDocumentTitles": [
+      "Improving Language Understanding(GPT).pdf"
+    ],
+    "expectedAnswer": "40,000번의 병합(BPE 어휘).",
+    "sourceUrls": [
+      "https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "search_documents",
+        "arg": "collection_name",
+        "equals": "rag_eval_papers"
+      }
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "tool-ko-route-v2-election",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "문서 기준으로 제21대 대선 최종 투표율은 얼마야?",
+    "collectionName": null,
+    "expectedDocumentTitles": [
+      "korea-presidential-election-2025.md"
+    ],
+    "expectedAnswer": "79.4%.",
+    "sourceUrls": [
+      "https://news.tf.co.kr/read/ptoday/2211658.htm",
+      "https://en.wikipedia.org/wiki/2025_South_Korean_presidential_election",
+      "https://v.daum.net/v/20250604063325321"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "search_documents",
+        "arg": "collection_name",
+        "equals": "rag_eval_v2"
+      }
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "tool-ko-search-then-calc",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "문서에서 2026 동계올림픽 노르웨이와 미국의 금메달 수를 찾고, 계산기로 차이를 구해줘.",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "winter-olympics-2026.md"
+    ],
+    "expectedAnswer": "노르웨이 18개 − 미국 12개 = 6개.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics",
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics_medal_table"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents",
+      "calculate"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "expectedArgs": [
+      {
+        "tool": "calculate",
+        "arg": "expression",
+        "evaluatesTo": 6
+      }
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "tool-ko-chitchat-no-tools",
+    "dataset": "tool",
+    "lang": "ko",
+    "query": "ㅎㅇ 오늘 기분 어때?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "도구 호출 없이 가볍게 대화한다.",
+    "expectedBehavior": "no_search",
+    "expectedTools": [],
+    "forbiddenTools": [
+      "search_documents",
+      "calculate",
+      "get_my_usage_stats",
+      "arxiv_search",
+      "tavily_search"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  }
+]

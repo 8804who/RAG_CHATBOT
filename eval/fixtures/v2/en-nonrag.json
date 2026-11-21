@@ -1,0 +1,242 @@
+[
+  {
+    "id": "en-nonrag-greeting",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "Hi there! How's it going?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "A friendly greeting; no document search.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-thanks",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "Thanks a lot, that was really helpful.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "A short acknowledgement; no document search.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-capabilities",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "What kinds of things can you help me with?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Briefly describes its capabilities (document Q&A, calculation, web search, etc.); no document search.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-capital-france",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "What is the capital of France?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Paris.",
+    "expectedBehavior": "no_search",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/Paris"
+    ],
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-week-days",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "How many days are there in a week?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Seven.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-translate-ko",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "How do you say 'good morning' in Korean?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "\"좋은 아침이에요\" (or 안녕하세요 as a general greeting); no document search.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-joke",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "Tell me a short joke about programmers.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "A short joke; no document search.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-define-noun",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "Explain what a noun is in one sentence.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "A noun is a word that names a person, place, thing or idea.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-cruyff-2025",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "Who won the Johan Cruyff Trophy for coach of the year at the 2025 Ballon d'Or?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Must say the documents do not contain this information and must not cite any document as the source for an answer.",
+    "expectedBehavior": "not_in_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-wc26-opening-score",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "What was the score of the opening match of the 2026 World Cup?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Must say the documents do not contain this information and must not cite any document as the source for an answer. (The document only says Mexico played the opening match at Estadio Azteca.)",
+    "expectedBehavior": "not_in_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-ballondor26-women-club",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "Which team won the women's Club of the Year at the 2026 Ballon d'Or?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Must say the documents do not contain this information and must not cite any document as the source for an answer.",
+    "expectedBehavior": "not_in_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-olympics-downhill",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "Who won the men's downhill at the 2026 Winter Olympics?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Must say the documents do not contain this information and must not cite any document as the source for an answer.",
+    "expectedBehavior": "not_in_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-bitcoin-price",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "What is the current price of Bitcoin in US dollars?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Should look it up with tavily_search and answer from web results, without citing the uploaded documents.",
+    "expectedBehavior": "web_search",
+    "expectedTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-london-weather",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "What's the weather like in London right now?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Should look it up with tavily_search and answer from web results, without citing the uploaded documents.",
+    "expectedBehavior": "web_search",
+    "expectedTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "en-nonrag-nobel-lit-2025",
+    "dataset": "en-nonrag",
+    "lang": "en",
+    "query": "Who won the 2025 Nobel Prize in Literature?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Should look it up with tavily_search and answer from web results, without citing the uploaded documents. The uploaded documents do not cover this.",
+    "expectedBehavior": "web_search",
+    "expectedTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  }
+]

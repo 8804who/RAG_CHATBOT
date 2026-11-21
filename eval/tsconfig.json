@@ -6,8 +6,10 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["tests/**/*.ts", "src/**/*.ts", "playwright.config.ts"]
+  "include": ["tests/**/*.ts", "src/**/*.ts", "scripts/**/*.ts", "playwright.config.ts"]
 }

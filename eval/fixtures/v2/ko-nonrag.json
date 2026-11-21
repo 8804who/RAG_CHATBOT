@@ -1,0 +1,245 @@
+[
+  {
+    "id": "ko-nonrag-greeting",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "안녕하세요! 반가워요.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "친근하게 인사로 답한다. 문서 검색 없음.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-thanks",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "고마워요, 오늘 많은 도움이 됐어요.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "감사 인사에 짧게 화답한다. 문서 검색 없음.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-whoami",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "너는 뭘 할 수 있어?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "자신의 기능(문서 검색 기반 답변, 계산, 웹 검색 등)을 간단히 소개한다. 문서 검색 없음.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-capital",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "대한민국의 수도는 어디야?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "서울.",
+    "expectedBehavior": "no_search",
+    "sourceUrls": [
+      "https://ko.wikipedia.org/wiki/서울특별시"
+    ],
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-boiling-point",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "1기압에서 물의 끓는점은 섭씨 몇 도야?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "섭씨 100도.",
+    "expectedBehavior": "no_search",
+    "sourceUrls": [
+      "https://ko.wikipedia.org/wiki/끓는점"
+    ],
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-translate",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "'감사합니다'를 영어로 어떻게 말해?",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "\"Thank you\".",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-rewrite",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "\"내일 회의 취소됐어\"를 정중한 존댓말로 바꿔줘.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "예: \"내일 회의가 취소되었습니다.\" 문서 검색 없음.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-haiku",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "가을에 관한 짧은 시 한 편 써줘.",
+    "collectionName": null,
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "짧은 가을 시를 창작한다. 문서 검색 없음.",
+    "expectedBehavior": "no_search",
+    "forbiddenTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 0,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-apec-declaration",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "경주 APEC 정상회의에서 정상들이 채택한 선언문의 이름이 뭐야?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Must say the documents do not contain this information and must not cite any document as the source for an answer. (문서에는 장관회의 성과 문서만 있고 정상 선언문 이름은 없다.)",
+    "expectedBehavior": "not_in_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-ks-game1-score",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "2025 한국시리즈 1차전 점수는 몇 대 몇이었어?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Must say the documents do not contain this information and must not cite any document as the source for an answer. (문서에는 5차전 점수만 있다.)",
+    "expectedBehavior": "not_in_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-daejeon-mayor",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "2026년 지방선거 대전시장 당선자 이름은?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Must say the documents do not contain this information and must not cite any document as the source for an answer. (문서에는 대전을 더불어민주당이 이겼다는 사실만 있고 당선자 이름은 없다.)",
+    "expectedBehavior": "not_in_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-ballondor25-cruyff",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "2025 발롱도르 요한 크루이프 트로피(올해의 감독) 수상자는?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Must say the documents do not contain this information and must not cite any document as the source for an answer.",
+    "expectedBehavior": "not_in_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "forbiddenTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-weather",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "지금 서울 날씨 어때?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Should look it up with tavily_search and answer from web results, without citing the uploaded documents.",
+    "expectedBehavior": "web_search",
+    "expectedTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-exchange-rate",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "오늘 원/달러 환율 알려줘.",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Should look it up with tavily_search and answer from web results, without citing the uploaded documents.",
+    "expectedBehavior": "web_search",
+    "expectedTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  },
+  {
+    "id": "ko-nonrag-wildfire-verdict",
+    "dataset": "ko-nonrag",
+    "lang": "ko",
+    "query": "의성 산불 실화 피고인들의 1심 선고 결과는 어떻게 나왔어?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [],
+    "expectedAnswer": "Should look it up with tavily_search and answer from web results, without citing the uploaded documents. 문서에는 2026년 1월 16일 선고 예정이라는 내용만 있으므로 결과는 웹에서 찾아야 한다.",
+    "expectedBehavior": "web_search",
+    "expectedTools": [
+      "tavily_search"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6
+  }
+]

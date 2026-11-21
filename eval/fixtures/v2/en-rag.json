@@ -1,0 +1,681 @@
+[
+  {
+    "id": "en-rag-ballondor25-winner",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Who won the men's 2025 Ballon d'Or, which club did he play for, and how many points did he get?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "ballon-dor-2025.md"
+    ],
+    "expectedAnswer": "Ousmane Dembélé of Paris Saint-Germain won with 1,380 points (his first Ballon d'Or); Lamine Yamal was second with 1,059.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2025_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-ballondor25-ceremony",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "When and where was the 2025 Ballon d'Or ceremony held, and who hosted it?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "ballon-dor-2025.md"
+    ],
+    "expectedAnswer": "On 22 September 2025 at the Théâtre du Châtelet in Paris; hosted by Kate Scott and Ruud Gullit.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2025_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-ballondor25-women",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Who won the 2025 Ballon d'Or Féminin and how many times had she won it?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "ballon-dor-2025.md"
+    ],
+    "expectedAnswer": "Aitana Bonmatí (Spain, Barcelona) with 506 points; it was her third Ballon d'Or.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2025_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-ballondor26-winner",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Who won the 2026 Ballon d'Or and how close was the vote with the runner-up?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "ballon-dor-2026.md"
+    ],
+    "expectedAnswer": "Harry Kane (England, Bayern Munich) won with 1,055 points; Kylian Mbappé was second with 1,027 points, 28 points behind.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-ballondor26-ceremony",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Where was the 2026 Ballon d'Or ceremony held, on what date, and which edition was it?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "ballon-dor-2026.md"
+    ],
+    "expectedAnswer": "The 70th Ballon d'Or ceremony was held on 26 October 2026 at the London Palladium in London, hosted by Kate Scott and Thierry Henry.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-ballondor26-socrates",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Who received the Sócrates Award at the 2026 Ballon d'Or?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "ballon-dor-2026.md"
+    ],
+    "expectedAnswer": "Bukayo Saka (England, Arsenal).",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-ballondor-dembele-2026",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Ousmane Dembélé won the Ballon d'Or in 2025. Where did he finish in the 2026 ranking?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "ballon-dor-2025.md",
+      "ballon-dor-2026.md"
+    ],
+    "expectedAnswer": "He won in 2025 with 1,380 points but finished seventh in 2026 with 418 points.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2025_Ballon_d%27Or",
+      "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 0.5,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-wc26-final",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Who won the 2026 FIFA World Cup final, what was the score, and who scored?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "fifa-world-cup-2026.md"
+    ],
+    "expectedAnswer": "Spain beat Argentina 1–0 after extra time on 19 July 2026 at MetLife Stadium; Ferran Torres scored in the 106th minute from a Nico Williams header.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup",
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_final"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-wc26-golden-boot",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Who won the Golden Boot at the 2026 World Cup and with how many goals?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "fifa-world-cup-2026.md"
+    ],
+    "expectedAnswer": "Kylian Mbappé (France) with 10 goals.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup",
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_final"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-wc26-format-stats",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "How many teams and matches did the 2026 World Cup have, and how many goals were scored in total?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "fifa-world-cup-2026.md"
+    ],
+    "expectedAnswer": "48 teams and 104 matches; 308 goals were scored (2.96 per match).",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup",
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_final"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-wc26-semifinals",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "What were the results of the two 2026 World Cup semi-finals?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "fifa-world-cup-2026.md"
+    ],
+    "expectedAnswer": "Spain beat France 2–0 (14 July, Dallas) and Argentina beat England 2–1 (15 July, Atlanta).",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup",
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_final"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-unai-simon-2026-awards",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Which two individual goalkeeper awards did Unai Simón win in 2026?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "fifa-world-cup-2026.md",
+      "ballon-dor-2026.md"
+    ],
+    "expectedAnswer": "The 2026 World Cup Golden Glove and the men's Yashin Trophy at the 2026 Ballon d'Or (his first Yashin Trophy).",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup",
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_final",
+      "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 0.5,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-conclave-electors-ballots",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "How many cardinal electors took part in the 2025 conclave, and on which ballot was the pope elected?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "papal-conclave-2025.md"
+    ],
+    "expectedAnswer": "133 cardinal electors (of 135 eligible); the pope was elected on the fourth ballot.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2025_papal_conclave",
+      "https://en.wikipedia.org/wiki/Pope_Leo_XIV"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-conclave-white-smoke",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "At what time did white smoke appear in the 2025 conclave, and who announced the new pope?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "papal-conclave-2025.md"
+    ],
+    "expectedAnswer": "At 6:07 p.m. on 8 May 2025; the protodeacon Cardinal Dominique Mamberti announced the election from the central loggia of St. Peter's Basilica.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2025_papal_conclave",
+      "https://en.wikipedia.org/wiki/Pope_Leo_XIV"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-leo-name-reason",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Why did Pope Leo XIV choose the name Leo?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "papal-conclave-2025.md"
+    ],
+    "expectedAnswer": "To echo Leo XIII, who developed modern Catholic social teaching during the Second Industrial Revolution with concern for workers, and in response to a new industrial revolution and artificial intelligence.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2025_papal_conclave",
+      "https://en.wikipedia.org/wiki/Pope_Leo_XIV"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-leo-peru",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "What position did Robert Prevost hold in Peru and when did he become a Peruvian citizen?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "papal-conclave-2025.md"
+    ],
+    "expectedAnswer": "He was named Bishop of Chiclayo on 26 September 2015 (serving until 2023) and became a naturalized Peruvian citizen in 2015.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2025_papal_conclave",
+      "https://en.wikipedia.org/wiki/Pope_Leo_XIV"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-olympics-norway-records",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "What medal records did Norway set at the 2026 Winter Olympics?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "winter-olympics-2026.md"
+    ],
+    "expectedAnswer": "Norway won 18 golds and 41 total medals, breaking the records of 16 golds (2022) and 39 total medals (2018).",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics",
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics_medal_table"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-olympics-ceremonies",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Where were the opening and closing ceremonies of the 2026 Winter Olympics held?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "winter-olympics-2026.md"
+    ],
+    "expectedAnswer": "Opening at Stadio San Siro, Milan on 6 February 2026; closing at the Verona Arena, Verona on 22 February 2026.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics",
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics_medal_table"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-olympics-brazil-first",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Which country won its first-ever Winter Olympic medal and gold medal at Milano Cortina 2026?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "winter-olympics-2026.md"
+    ],
+    "expectedAnswer": "Brazil, the first tropical, Latin American and South American nation to win a Winter Olympic medal. (Georgia also won its first Winter Olympic medal.)",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics",
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics_medal_table"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-kbo-ks-mvp-crosslang",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Who was the MVP of the 2025 Korean Series and what were his series stats?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "kbo-2025-season.md"
+    ],
+    "expectedAnswer": "LG Twins' Kim Hyun-soo (김현수), with 61 of 89 votes (68.5%); he batted .529 (9-for-17) with 1 home run and 8 RBIs.",
+    "sourceUrls": [
+      "https://www.newsis.com/view/NISX20251031_0003385921",
+      "https://sports.khan.co.kr/article/202511241520003"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-transformer-heads",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "How many attention heads does the base Transformer model use, and what is the dimension per head?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Attention Is All You Need(Transformer).pdf"
+    ],
+    "expectedAnswer": "h=8 heads; with d_model=512, each head uses d_k=d_v=64.",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1706.03762"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-transformer-bleu-en-de",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "What BLEU score did the big Transformer achieve on WMT 2014 English-to-German?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Attention Is All You Need(Transformer).pdf"
+    ],
+    "expectedAnswer": "28.4 BLEU, improving over the previous best results (including ensembles) by more than 2.0 BLEU.",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1706.03762"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-transformer-scaling",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Why does scaled dot-product attention divide by the square root of d_k?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Attention Is All You Need(Transformer).pdf"
+    ],
+    "expectedAnswer": "For large d_k the dot products grow large, pushing softmax into regions with extremely small gradients; scaling by 1/sqrt(d_k) counteracts this.",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1706.03762"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-transformer-training-hardware",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "What hardware were the Transformer models trained on and how long did base and big models train?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Attention Is All You Need(Transformer).pdf"
+    ],
+    "expectedAnswer": "One machine with 8 NVIDIA P100 GPUs; base models 100,000 steps (12 hours), big models 300,000 steps (3.5 days).",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1706.03762"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-bert-pretraining-tasks",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "What are the two unsupervised pre-training tasks used by BERT?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "BERT.pdf"
+    ],
+    "expectedAnswer": "Masked Language Model (masking 15% of WordPiece tokens) and Next Sentence Prediction.",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1810.04805"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-bert-model-sizes",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "How many parameters do BERT_BASE and BERT_LARGE have?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "BERT.pdf"
+    ],
+    "expectedAnswer": "BERT_BASE 110M (L=12, H=768, A=12); BERT_LARGE 340M (L=24, H=1024, A=16).",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1810.04805"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-bert-masking-strategy",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "When BERT selects a token for masking, what replacement strategies are used and how often?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "BERT.pdf"
+    ],
+    "expectedAnswer": "80% replaced with [MASK], 10% with a random token, 10% left unchanged.",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1810.04805"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-gpt-pretraining-corpus",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "What dataset was GPT pre-trained on and roughly how many books does it contain?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Improving Language Understanding(GPT).pdf"
+    ],
+    "expectedAnswer": "BooksCorpus, over 7,000 unique unpublished books from genres such as Adventure, Fantasy and Romance.",
+    "sourceUrls": [
+      "https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-gpt-ablation-no-pretraining",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "In the GPT paper's ablation, how much did removing pre-training hurt the average score?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Improving Language Understanding(GPT).pdf"
+    ],
+    "expectedAnswer": "A 14.8% decrease in average score compared to the full model.",
+    "sourceUrls": [
+      "https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "en-rag-bert-vs-gpt-corpus",
+    "dataset": "en-rag",
+    "lang": "en",
+    "query": "Compare the pre-training corpora of GPT and BERT.",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "BERT.pdf",
+      "Improving Language Understanding(GPT).pdf"
+    ],
+    "expectedAnswer": "GPT was trained on BooksCorpus (800M words); BERT was trained on BooksCorpus (800M words) plus English Wikipedia (2,500M words).",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1810.04805",
+      "https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 0.5,
+    "minPrecision": 0.3
+  }
+]
