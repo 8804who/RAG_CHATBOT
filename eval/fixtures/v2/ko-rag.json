@@ -1,0 +1,697 @@
+[
+  {
+    "id": "ko-rag-election-result",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "제21대 대통령 선거 당선자와 득표율, 득표수를 알려줘.",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "korea-presidential-election-2025.md"
+    ],
+    "expectedAnswer": "더불어민주당 이재명 후보가 17,287,513표(49.42%)로 당선되었다. 2위 김문수 후보는 14,395,639표(41.15%).",
+    "sourceUrls": [
+      "https://news.tf.co.kr/read/ptoday/2211658.htm",
+      "https://en.wikipedia.org/wiki/2025_South_Korean_presidential_election",
+      "https://v.daum.net/v/20250604063325321"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-election-turnout",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "제21대 대선의 최종 투표율과 사전투표율은?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "korea-presidential-election-2025.md"
+    ],
+    "expectedAnswer": "최종 투표율 79.4%(1997년 15대 대선 이후 최고), 사전투표율 34.74%.",
+    "sourceUrls": [
+      "https://news.tf.co.kr/read/ptoday/2211658.htm",
+      "https://en.wikipedia.org/wiki/2025_South_Korean_presidential_election",
+      "https://v.daum.net/v/20250604063325321"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-election-reason",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2025년 대선이 조기에 치러진 이유는 뭐야?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "korea-presidential-election-2025.md"
+    ],
+    "expectedAnswer": "2024년 12월 3일 윤석열 대통령의 비상계엄 선포 후 12월 14일 탄핵소추안이 가결(찬성 204명)되고, 2025년 4월 4일 헌법재판소가 탄핵을 인용해 파면했기 때문.",
+    "sourceUrls": [
+      "https://news.tf.co.kr/read/ptoday/2211658.htm",
+      "https://en.wikipedia.org/wiki/2025_South_Korean_presidential_election",
+      "https://v.daum.net/v/20250604063325321"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-election-transition",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "제21대 대통령은 인수위원회 기간이 있었어?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "korea-presidential-election-2025.md"
+    ],
+    "expectedAnswer": "없었다. 궐위 선거라 중앙선관위원장이 개표 결과를 확정하고 의사봉을 세 번 두드리는 순간 바로 임기가 시작됐다.",
+    "sourceUrls": [
+      "https://news.tf.co.kr/read/ptoday/2211658.htm",
+      "https://en.wikipedia.org/wiki/2025_South_Korean_presidential_election",
+      "https://v.daum.net/v/20250604063325321"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-election-record-votes",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "이재명 후보는 과반을 얻었어? 득표수 기록은?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "korea-presidential-election-2025.md"
+    ],
+    "expectedAnswer": "과반에는 못 미쳤지만(49.42%) 1,728만여 표로 역대 대선 최다 득표 기록을 세웠다.",
+    "sourceUrls": [
+      "https://news.tf.co.kr/read/ptoday/2211658.htm",
+      "https://en.wikipedia.org/wiki/2025_South_Korean_presidential_election",
+      "https://v.daum.net/v/20250604063325321"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-apec-venue",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2025년 APEC 정상회의는 언제 어디서 열렸고 몇 번째 회의야?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "apec-2025-gyeongju.md"
+    ],
+    "expectedAnswer": "제33회 APEC 정상회의로 2025년 10월 31일~11월 1일 경북 경주시 경주화백컨벤션센터에서 열렸다.",
+    "sourceUrls": [
+      "https://ko.wikipedia.org/wiki/2025년_APEC_정상회의",
+      "https://en.wikipedia.org/wiki/APEC_South_Korea_2025"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-apec-theme",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "경주 APEC 정상회의의 주제는?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "apec-2025-gyeongju.md"
+    ],
+    "expectedAnswer": "\"우리가 만들어가는 지속가능한 내일: 연결, 혁신, 번영\"(Building a Sustainable Tomorrow: Connect, Innovate, Prosper).",
+    "sourceUrls": [
+      "https://ko.wikipedia.org/wiki/2025년_APEC_정상회의",
+      "https://en.wikipedia.org/wiki/APEC_South_Korea_2025"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-apec-trump",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "트럼프 대통령은 경주 APEC 정상회의 본회의에 참석했어?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "apec-2025-gyeongju.md"
+    ],
+    "expectedAnswer": "참석하지 않았다. CEO 써밋과 미국-APEC 정상 업무 만찬에만 참석하고 10월 30일 출국했으며, 스콧 베센트 재무장관이 대신 참석했다.",
+    "sourceUrls": [
+      "https://ko.wikipedia.org/wiki/2025년_APEC_정상회의",
+      "https://en.wikipedia.org/wiki/APEC_South_Korea_2025"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-apec-next-host",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2025 APEC 다음 개최국은 어디야?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "apec-2025-gyeongju.md"
+    ],
+    "expectedAnswer": "2026년 중국.",
+    "sourceUrls": [
+      "https://ko.wikipedia.org/wiki/2025년_APEC_정상회의",
+      "https://en.wikipedia.org/wiki/APEC_South_Korea_2025"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-kbo-ks-result",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2025년 한국시리즈 우승팀과 시리즈 전적은?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "kbo-2025-season.md"
+    ],
+    "expectedAnswer": "LG 트윈스가 한화 이글스를 4승 1패로 꺾고 우승했다. 통산 4번째 우승이며 2년 만의 통합 우승.",
+    "sourceUrls": [
+      "https://www.newsis.com/view/NISX20251031_0003385921",
+      "https://sports.khan.co.kr/article/202511241520003"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-kbo-ks-mvp",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2025 한국시리즈 MVP는 누구고 몇 표를 받았어?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "kbo-2025-season.md"
+    ],
+    "expectedAnswer": "LG 김현수, 기자단 89표 중 61표(68.5%). 시리즈 타율 0.529, 1홈런 8타점.",
+    "sourceUrls": [
+      "https://www.newsis.com/view/NISX20251031_0003385921",
+      "https://sports.khan.co.kr/article/202511241520003"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-kbo-ponce-stats",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "코디 폰세의 2025 정규시즌 성적은?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "kbo-2025-season.md"
+    ],
+    "expectedAnswer": "29경기 17승 1패, 평균자책점 1.89, 탈삼진 252개, 승률 0.944로 외국인 선수 최초 투수 4관왕.",
+    "sourceUrls": [
+      "https://www.newsis.com/view/NISX20251031_0003385921",
+      "https://sports.khan.co.kr/article/202511241520003"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-kbo-hanwha-mvp-gap",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "한화 선수가 정규시즌 MVP를 받은 건 몇 년 만이야?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "kbo-2025-season.md"
+    ],
+    "expectedAnswer": "2006년 류현진 이후 19년 만이다(2025년 코디 폰세).",
+    "sourceUrls": [
+      "https://www.newsis.com/view/NISX20251031_0003385921",
+      "https://sports.khan.co.kr/article/202511241520003"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-local-seoul-mayor",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2026년 지방선거 서울시장 당선자와 득표율은?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "korea-local-elections-2026.md"
+    ],
+    "expectedAnswer": "국민의힘 오세훈이 48.94%로 정원오(48.34%)를 0.6%p 차로 이겼다(개표율 97.70% 기준). 민선 최초 5선 서울시장.",
+    "sourceUrls": [
+      "https://ko.wikipedia.org/wiki/제9회_전국동시지방선거",
+      "https://www.newsis.com/view/NISX20260604_0003656115",
+      "https://www.newsis.com/view/NISX20260604_0003656058"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-local-party-count",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "제9회 지방선거 광역단체장 정당별 결과는?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "korea-local-elections-2026.md"
+    ],
+    "expectedAnswer": "더불어민주당 12곳, 국민의힘 4곳(서울, 대구, 경북, 경남).",
+    "sourceUrls": [
+      "https://ko.wikipedia.org/wiki/제9회_전국동시지방선거",
+      "https://www.newsis.com/view/NISX20260604_0003656115",
+      "https://www.newsis.com/view/NISX20260604_0003656058"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-local-busan-bukgap",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2026년 재보궐선거 부산 북구갑 결과는?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "korea-local-elections-2026.md"
+    ],
+    "expectedAnswer": "무소속 한동훈 후보가 42.96%로 당선(하정우 41.26%, 박민식 15.76%).",
+    "sourceUrls": [
+      "https://ko.wikipedia.org/wiki/제9회_전국동시지방선거",
+      "https://www.newsis.com/view/NISX20260604_0003656115",
+      "https://www.newsis.com/view/NISX20260604_0003656058"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-wildfire-cause",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2025년 3월 의성 산불은 언제, 어떻게 시작됐어?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "yeongnam-wildfire-2025.md"
+    ],
+    "expectedAnswer": "2025년 3월 22일 의성군 안계면 용기리 과수원과 안평면 괴산리 야산에서 각각 실화로 시작됐다(과수원 임차인의 쓰레기 소각, 성묘객의 터보 라이터 사용).",
+    "sourceUrls": [
+      "https://www.newsis.com/view/NISX20250327_0003115304",
+      "https://m.seoul.co.kr/news/2025/11/06/20251106500204"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-wildfire-prosecution",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "의성 산불 실화 피고인들에게 검찰은 어떤 형을 구형했어?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "yeongnam-wildfire-2025.md"
+    ],
+    "expectedAnswer": "산림보호법상 최고형인 징역 3년을 각각 구형했다. 선고는 2026년 1월 16일 예정.",
+    "sourceUrls": [
+      "https://www.newsis.com/view/NISX20250327_0003115304",
+      "https://m.seoul.co.kr/news/2025/11/06/20251106500204"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-wildfire-record",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "의성 산불 이전의 역대 최대 산불은 무엇이고 최종 피해 면적은 얼마야?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "yeongnam-wildfire-2025.md"
+    ],
+    "expectedAnswer": "이전 최대는 2000년 동해안 산불(2만 3794ha)이었고, 이번 산불의 최종 산림 피해 면적은 9만 9289ha.",
+    "sourceUrls": [
+      "https://www.newsis.com/view/NISX20250327_0003115304",
+      "https://m.seoul.co.kr/news/2025/11/06/20251106500204"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-wc26-champion-crosslang",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2026 월드컵 우승국과 결승전 스코어, 결승골 주인공은?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "fifa-world-cup-2026.md"
+    ],
+    "expectedAnswer": "스페인이 아르헨티나를 연장 끝에 1-0으로 이겼고, 페란 토레스가 연장 106분에 결승골을 넣었다.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup",
+      "https://en.wikipedia.org/wiki/2026_FIFA_World_Cup_final"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-olympics-korea-crosslang",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2026 밀라노 코르티나 동계올림픽에서 한국의 순위와 메달 수는?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "winter-olympics-2026.md"
+    ],
+    "expectedAnswer": "13위, 금 3·은 4·동 3, 총 10개.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics",
+      "https://en.wikipedia.org/wiki/2026_Winter_Olympics_medal_table"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-ballondor26-crosslang",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "2026년 발롱도르 수상자는 누구야?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "ballon-dor-2026.md"
+    ],
+    "expectedAnswer": "해리 케인(잉글랜드, 바이에른 뮌헨), 1,055점.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2026_Ballon_d%27Or"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-pope-leo-crosslang",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "새 교황 레오 14세는 어느 나라 출신이고 교황 선출 전 직책은?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "papal-conclave-2025.md"
+    ],
+    "expectedAnswer": "미국 출신(시카고 태생) 로버트 프랜시스 프레보스트로, 주교부 장관 겸 교황청 라틴아메리카 위원회 위원장이었다.",
+    "sourceUrls": [
+      "https://en.wikipedia.org/wiki/2025_papal_conclave",
+      "https://en.wikipedia.org/wiki/Pope_Leo_XIV"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-multi-lee-apec",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "제21대 대선 당선자가 의장을 맡은 2025년 국제 정상회의는 어디서 열렸어?",
+    "collectionName": "rag_eval_v2",
+    "expectedDocumentTitles": [
+      "korea-presidential-election-2025.md",
+      "apec-2025-gyeongju.md"
+    ],
+    "expectedAnswer": "이재명 대통령이 의장을 맡은 제33회 APEC 정상회의로, 경주화백컨벤션센터에서 2025년 10월 31일~11월 1일 열렸다.",
+    "sourceUrls": [
+      "https://news.tf.co.kr/read/ptoday/2211658.htm",
+      "https://en.wikipedia.org/wiki/2025_South_Korean_presidential_election",
+      "https://v.daum.net/v/20250604063325321",
+      "https://ko.wikipedia.org/wiki/2025년_APEC_정상회의",
+      "https://en.wikipedia.org/wiki/APEC_South_Korea_2025"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 0.5,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-transformer-heads",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "트랜스포머 base 모델의 어텐션 헤드 수와 헤드당 차원은?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Attention Is All You Need(Transformer).pdf"
+    ],
+    "expectedAnswer": "8개 헤드, d_model=512이므로 헤드당 d_k=d_v=64.",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1706.03762"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-transformer-scaling",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "트랜스포머에서 내적을 sqrt(d_k)로 나누는 이유는?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Attention Is All You Need(Transformer).pdf"
+    ],
+    "expectedAnswer": "d_k가 크면 내적 값이 커져 softmax가 기울기가 매우 작은 영역으로 밀리므로 1/sqrt(d_k)로 스케일링해 이를 상쇄한다.",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1706.03762"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-bert-masking",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "BERT에서 마스킹 대상 토큰은 어떤 비율로 어떻게 바뀌어?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "BERT.pdf"
+    ],
+    "expectedAnswer": "80%는 [MASK], 10%는 임의의 토큰, 10%는 그대로 둔다.",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1810.04805"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-bert-results",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "BERT가 GLUE와 SQuAD v1.1에서 얻은 점수는?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "BERT.pdf"
+    ],
+    "expectedAnswer": "GLUE 80.5%(7.7%p 향상), SQuAD v1.1 Test F1 93.2(1.5점 향상).",
+    "sourceUrls": [
+      "https://arxiv.org/abs/1810.04805"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-gpt-architecture",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "GPT 모델의 층 수, 은닉 차원, 어텐션 헤드 수는?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Improving Language Understanding(GPT).pdf"
+    ],
+    "expectedAnswer": "12층 디코더 전용 트랜스포머, 768차원 은닉 상태, 12개 어텐션 헤드, 3072차원 피드포워드.",
+    "sourceUrls": [
+      "https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  },
+  {
+    "id": "ko-rag-gpt-training-setup",
+    "dataset": "ko-rag",
+    "lang": "ko",
+    "query": "GPT 사전학습의 옵티마이저 설정과 배치 구성, BPE 어휘 크기는?",
+    "collectionName": "rag_eval_papers",
+    "expectedDocumentTitles": [
+      "Improving Language Understanding(GPT).pdf"
+    ],
+    "expectedAnswer": "Adam, 최대 학습률 2.5e-4; 512 토큰 연속 시퀀스 64개 미니배치로 100 에폭 학습; BPE 40,000 병합.",
+    "sourceUrls": [
+      "https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf"
+    ],
+    "expectedBehavior": "answer_from_docs",
+    "expectedTools": [
+      "search_documents"
+    ],
+    "maxToolCalls": 3,
+    "minJudgeScore": 0.6,
+    "minRecall": 1,
+    "minPrecision": 0.3
+  }
+]

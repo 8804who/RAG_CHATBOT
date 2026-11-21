@@ -2,7 +2,7 @@ import crypto from 'node:crypto'
 
 import { Pool } from 'pg'
 
-import type { ChatUsageRow } from './types'
+import type { ChatUsageRow, ToolCallRow } from './types'
 
 // Bypasses Google OAuth for the eval run: Playwright can't complete a real
 // Google consent screen headlessly, so we seed a User + GoogleSession row
@@ -74,6 +74,49 @@ export async function getLatestChatUsage(conversationId: string): Promise<ChatUs
     [conversationId],
   )
   return result.rows[0] ?? null
+}
+
+export async function getToolCalls(conversationId: string): Promise<ToolCallRow[]> {
+  const result = await getPool().query<ToolCallRow>(
+    `SELECT tool_name, tool_args FROM agent_tool_call_logs WHERE conversation_id = $1 ORDER BY id`,
+    [conversationId],
+  )
+  return result.rows
+}
+
+export async function getCollectionEmbedding(
+  collectionName: string,
+): Promise<{ model: string; dimension: number } | null> {
+  const result = await getPool().query<{ model: string; dimension: number }>(
+    `SELECT embedding_model AS model, dimension FROM collection_meta WHERE collection_name = $1`,
+    [collectionName],
+  )
+  return result.rows[0] ?? null
+}
+
+export interface IndexedDocument {
+  document_id: string
+  filename: string
+  collection_name: string
+}
+
+/** INDEXED documents, used to resolve fixture expectedDocumentTitles to document_ids. */
+export async function getIndexedDocuments(): Promise<IndexedDocument[]> {
+  const result = await getPool().query<IndexedDocument>(
+    `SELECT document_id, filename, collection_name FROM document_progress_status WHERE status = 'INDEXED'`,
+  )
+  return result.rows
+}
+
+/** Every progress row (any status) in one collection; used by scripts/ingest-v2.ts. */
+export async function getDocumentStatuses(
+  collectionName: string,
+): Promise<{ filename: string; status: string }[]> {
+  const result = await getPool().query<{ filename: string; status: string }>(
+    `SELECT filename, status FROM document_progress_status WHERE collection_name = $1`,
+    [collectionName],
+  )
+  return result.rows
 }
 
 export async function closeDb(): Promise<void> {

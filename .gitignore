@@ -22,7 +22,8 @@ dist-ssr/
 # Playwright (eval/)
 eval/test-results/
 eval/playwright-report/
-eval/test-data/
+eval/test-data/*
+!eval/test-data/v2/
 
 # Editor / OS
 .DS_Store

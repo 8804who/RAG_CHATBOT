@@ -5,7 +5,8 @@
   "scripts": {
     "test": "playwright test",
     "test:report": "playwright show-report",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "ingest:v2": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/ingest-v2.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.0",
