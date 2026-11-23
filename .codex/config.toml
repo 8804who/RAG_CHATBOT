@@ -1,0 +1,45 @@
+[mcp_servers.code-review-graph]
+command = "uvx"
+args = [
+    "code-review-graph",
+    "serve",
+]
+
+[mcp_servers.kafka]
+command = "npx"
+args = [
+    "-y",
+    "@confluentinc/mcp-confluent",
+    "--config",
+    ".claude/mcp/kafka.yaml",
+    "--block-tools",
+    "create-topics,delete-topics,produce-message",
+]
+
+[mcp_servers.kafka.env]
+DO_NOT_TRACK = "true"
+
+[mcp_servers.playwright]
+command = "npx"
+args = [
+    "-y",
+    "@playwright/mcp@latest",
+    "--headless",
+    "--isolated",
+    "--caps=storage",
+]
+
+# Codex는 args의 ${VAR}를 확장하지 않으므로 sh로 감싸 .mcp.json과 같은 URI를 만든다.
+[mcp_servers.postgres]
+command = "sh"
+args = ["-c", "DATABASE_URI=\"postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB\" exec uvx postgres-mcp --access-mode=restricted"]
+env_vars = ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB"]
+
+[mcp_servers.redis]
+command = "sh"
+args = ["-c", "exec uvx --from redis-mcp-server@latest redis-mcp-server --url \"redis://:$REDIS_PASSWORD@localhost:6379/0\""]
+env_vars = ["REDIS_PASSWORD"]
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
