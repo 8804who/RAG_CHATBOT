@@ -46,23 +46,23 @@ export function CollectionListItem({
   }
 
   return (
-    <li className="px-5 py-3.5">
+    <li className="px-5 py-3.5 transition hover:bg-surface-2">
       <div className="flex items-center gap-3">
-        <span className="grid size-8 place-items-center rounded-lg bg-brand-50 text-brand-600">
+        <span className="grid size-8 place-items-center rounded-md bg-surface-3 text-muted">
           ▤
         </span>
-        <span className="flex-1 truncate text-sm font-medium text-gray-900">
+        <span className="flex-1 truncate text-sm font-bold">
           {collection.name}
         </span>
 
         {confirmingDelete ? (
           <span className="flex items-center gap-2 text-sm">
-            <span className="text-gray-500">Delete?</span>
+            <span className="text-muted">Delete?</span>
             <button
               type="button"
               onClick={handleDelete}
               disabled={remove.isPending}
-              className="rounded-md bg-red-500 px-2.5 py-1 text-xs font-medium text-white transition hover:bg-red-600 disabled:opacity-50"
+              className="rounded-full bg-negative px-4 py-1.5 text-sm font-bold text-black transition hover:bg-negative/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:opacity-50"
             >
               {remove.isPending ? 'Deleting…' : 'Confirm'}
             </button>
@@ -70,7 +70,7 @@ export function CollectionListItem({
               type="button"
               onClick={() => setConfirmingDelete(false)}
               disabled={remove.isPending}
-              className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100 disabled:opacity-50"
+              className="btn-secondary"
             >
               Cancel
             </button>
@@ -80,14 +80,14 @@ export function CollectionListItem({
             <button
               type="button"
               onClick={() => setEditing((v) => !v)}
-              className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-100"
+              className="btn-secondary"
             >
               {editing ? 'Close' : 'Edit'}
             </button>
             <button
               type="button"
               onClick={() => setConfirmingDelete(true)}
-              className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50"
+              className="btn-danger"
             >
               Delete
             </button>
@@ -96,7 +96,7 @@ export function CollectionListItem({
       </div>
 
       {remove.error && (
-        <p className="mt-2 text-xs text-red-500">
+        <p className="mt-2 text-xs text-negative">
           {mutationErrorMessage(remove.error, 'delete')}
         </p>
       )}
@@ -104,9 +104,9 @@ export function CollectionListItem({
       {editing && (
         <div className="mt-3">
           {detail.isLoading ? (
-            <p className="text-sm text-gray-400">Loading settings…</p>
+            <p className="text-sm text-muted">Loading settings…</p>
           ) : detail.isError || !detail.data ? (
-            <p className="text-sm text-red-500">Could not load settings.</p>
+            <p className="text-sm text-negative">Could not load settings.</p>
           ) : (
             <EditCollectionForm
               collection={detail.data}

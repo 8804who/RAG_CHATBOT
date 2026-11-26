@@ -51,7 +51,7 @@ export default function IngestProgress({ status }: IngestProgressProps) {
   return (
     <div
       className={`rounded-lg px-3 py-2 text-sm ${
-        isFailed ? 'bg-red-50 text-red-600' : 'bg-brand-50 text-brand-700'
+        isFailed ? 'bg-negative/10 text-negative' : 'bg-surface-2 text-fg'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
@@ -62,16 +62,16 @@ export default function IngestProgress({ status }: IngestProgressProps) {
             ` (${status.indexed_chunks}/${status.total_chunks} chunks)`}
         </span>
         {status.estimated_seconds_remaining !== null && (
-          <span className="shrink-0 text-xs text-brand-600">
+          <span className="shrink-0 text-xs text-muted">
             {formatSecondsRemaining(status.estimated_seconds_remaining)}
           </span>
         )}
       </div>
 
       {!isFailed && (
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-brand-100">
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-4">
           <div
-            className={`h-full rounded-full bg-brand-500 transition-[width] ${widthClassFor(
+            className={`h-full rounded-full bg-primary transition-[width] ${widthClassFor(
               status.progress_percent,
             )}`}
           />

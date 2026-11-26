@@ -157,3 +157,12 @@ D-001 to D-008 record decisions already reflected in the code. Their original da
 - Decision: track `CLAUDE.md`, `.claude/agents/`, `.claude/.rules/`, and `docs/`. Keep `.claude/settings*.json`, `.claude/mcp/`, `.claude/skills/`, and `docs/career/` (private notes) ignored. Agent-facing docs (`docs/harness/`, `.claude/`) are written in English; code comments/docstrings stay Korean per `.claude/.rules/`.
 - Alternatives: keep everything local — rejected, harness changes had no history or review.
 - Impact: `.gitignore`; a secret scan of the newly tracked files found only the dummy `sk-mock` (D-010(a)).
+
+### D-015 · Adopt the Spotify-inspired design system (user decision)
+- Date: 2026-11-26
+- Decided by: user (via the main session), recorded by the main session acting as pm (T-032)
+- Status: Accepted
+- Context: `.claude/.rules/design.md` asked for a light Instagram/LinkedIn-style SaaS look; the user asked to use `.claude/design/DESIGN-spotify.md` instead.
+- Decision: `DESIGN-spotify.md` is the canonical visual system (dark `#121212` base, `#1ed760` accent only for primary CTA/active, pill buttons, uppercase button labels, heavy shadows on dark). UX/form/a11y/responsive rules in `design.md` still bind. No Spotify name, logo, or proprietary fonts.
+- Alternatives: rule-only adoption (no restyle) or restyle without changing rules — rejected by the user.
+- Impact: `.claude/.rules/design.md`, `docs/harness/DESIGN_GUIDELINES.md`, all of `frontend/src`.

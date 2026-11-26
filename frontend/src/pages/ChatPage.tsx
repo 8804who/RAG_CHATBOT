@@ -12,9 +12,6 @@ const suggestions = [
   'What does the security policy say about passwords?',
 ]
 
-const selectClass =
-  'rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:opacity-50'
-
 // Sentinel select value for "let the agent pick the collection(s) per query"
 // (maps to collection_name: undefined on the wire, see useChat).
 const AGENT_CHOOSES_COLLECTION = '__agent_choose__'
@@ -51,15 +48,15 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-lg font-semibold">Chat</h1>
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-2 px-6 py-4">
+        <h1 className="text-2xl font-bold">Chat</h1>
         <div className="flex flex-wrap items-center gap-2">
           <select
             aria-label="Collection"
             value={collectionSelectValue}
             onChange={(e) => setCollectionOverride(e.target.value)}
             disabled={pickersLocked || collectionsLoading}
-            className={selectClass}
+            className="field w-auto"
           >
             {collectionsLoading ? (
               <option value="">Loading collections…</option>
@@ -86,7 +83,7 @@ export default function ChatPage() {
               !chatModels ||
               chatModels.length === 0
             }
-            className={selectClass}
+            className="field w-auto"
           >
             {chatModelsLoading ? (
               <option value="">Loading models…</option>
@@ -104,7 +101,7 @@ export default function ChatPage() {
             <button
               type="button"
               onClick={reset}
-              className="rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100"
+              className="btn-ghost"
             >
               New chat
             </button>
@@ -115,13 +112,13 @@ export default function ChatPage() {
       <div className="flex-1 overflow-y-auto px-6 py-6">
         {isEmpty ? (
           <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center">
-            <span className="mb-4 grid size-14 place-items-center rounded-2xl bg-brand-50 text-3xl">
+            <span className="mb-4 grid size-14 place-items-center rounded-full bg-surface-2 text-3xl">
               💬
             </span>
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-2xl font-bold">
               Ask your knowledge base
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted">
               Answers are grounded in your uploaded documents.
             </p>
             {canChat ? (
@@ -131,14 +128,14 @@ export default function ChatPage() {
                     key={s}
                     type="button"
                     onClick={() => send(s)}
-                    className="rounded-xl border border-gray-200 bg-white p-3 text-left text-sm text-gray-600 transition hover:border-brand-300 hover:bg-brand-50"
+                    className="rounded-lg bg-surface p-3 text-left text-sm text-soft transition hover:bg-surface-3 hover:text-fg focus-visible:outline-2 focus-visible:outline-fg"
                   >
                     {s}
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="mt-6 text-sm text-gray-400">
+              <p className="mt-6 text-sm text-muted">
                 Pick a chat model above to get started.
               </p>
             )}
@@ -150,7 +147,7 @@ export default function ChatPage() {
             ))}
             {isThinking && (
               <div className="flex justify-start">
-                <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-400">
+                <div className="rounded-lg bg-surface px-4 py-3 text-sm text-muted">
                   Thinking…
                 </div>
               </div>

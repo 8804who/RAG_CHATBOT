@@ -21,14 +21,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+    <div className="flex h-full items-center justify-center bg-canvas px-4">
+      <div className="w-full max-w-sm rounded-lg bg-surface p-8 shadow-heavy">
         <div className="mb-6 flex flex-col items-center text-center">
-          <span className="mb-3 grid size-12 place-items-center rounded-xl bg-brand-500 text-2xl text-white">
+          <span className="mb-3 grid size-12 place-items-center rounded-full bg-surface-3 text-2xl text-fg">
             ◆
           </span>
-          <h1 className="text-xl font-semibold text-gray-900">RAG Chatbot</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold">RAG Chatbot</h1>
+          <p className="mt-1 text-sm text-muted">
             Sign in to chat with your documents
           </p>
         </div>
@@ -37,7 +37,7 @@ export default function LoginPage() {
           type="button"
           onClick={handleLogin}
           disabled={busy}
-          className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+          className="btn-secondary w-full"
         >
           <GoogleIcon />
           {busy ? 'Signing in…' : 'Continue with Google'}

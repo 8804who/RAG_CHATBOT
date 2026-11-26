@@ -17,9 +17,6 @@ function readFileAsText(file: File): Promise<string> {
   })
 }
 
-const fieldClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100'
-
 export default function DocumentUpload({
   onIngest,
   busy,
@@ -57,34 +54,34 @@ export default function DocumentUpload({
         {showPaste ? (
           <form
             onSubmit={handlePasteSubmit}
-            className="space-y-3 rounded-2xl border border-gray-200 bg-white p-4"
+            className="space-y-3 rounded-lg bg-surface p-4"
           >
             <input
               type="text"
               value={pasteTitle}
               onChange={(e) => setPasteTitle(e.target.value)}
               placeholder="Title (e.g. release-notes.md)"
-              className={fieldClass}
+              className="field"
             />
             <textarea
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               placeholder="Paste document text to embed…"
               rows={6}
-              className={`${fieldClass} resize-y`}
+              className="field resize-y"
             />
             <div className="flex gap-2">
               <button
                 type="submit"
                 disabled={busy || !pasteText.trim()}
-                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
+                className="btn-primary"
               >
                 {busy ? 'Embedding…' : 'Add document'}
               </button>
               <button
                 type="button"
                 onClick={() => setShowPaste(false)}
-                className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+                className="btn-ghost"
               >
                 Cancel
               </button>
@@ -94,7 +91,7 @@ export default function DocumentUpload({
           <button
             type="button"
             onClick={() => setShowPaste(true)}
-            className="text-sm font-medium text-brand-600 hover:text-brand-700"
+            className="text-sm font-bold text-muted underline-offset-4 hover:text-fg hover:underline focus-visible:outline-2 focus-visible:outline-fg"
           >
             or paste text instead
           </button>

@@ -19,13 +19,13 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex h-full bg-gray-50 text-gray-900">
-      <aside className="flex w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
+    <div className="flex h-full bg-canvas text-fg">
+      <aside className="flex w-64 shrink-0 flex-col bg-surface">
         <div className="flex items-center gap-2 px-5 py-5">
-          <span className="grid size-8 place-items-center rounded-lg bg-brand-500 text-white">
+          <span className="grid size-8 place-items-center rounded-lg bg-surface-3 text-fg">
             ◆
           </span>
-          <span className="text-lg font-semibold">RAG Chatbot</span>
+          <span className="text-lg font-bold">RAG Chatbot</span>
         </div>
 
         <nav className="flex-1 space-y-1 px-3">
@@ -34,10 +34,10 @@ export default function Layout() {
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition focus-visible:outline-2 focus-visible:outline-fg ${
                   isActive
-                    ? 'bg-brand-50 text-brand-700'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-surface-3 font-bold text-fg'
+                    : 'text-muted hover:text-fg'
                 }`
               }
             >
@@ -47,7 +47,7 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="border-t border-gray-200 p-3">
+        <div className="border-t border-canvas p-3">
           <div className="flex items-center gap-3 px-2 py-2">
             {user?.picture ? (
               <img
@@ -56,21 +56,21 @@ export default function Layout() {
                 className="size-8 rounded-full object-cover"
               />
             ) : (
-              <span className="grid size-8 place-items-center rounded-full bg-gray-200 text-sm font-medium">
+              <span className="grid size-8 place-items-center rounded-full bg-surface-3 text-sm font-bold">
                 {(user?.name ?? user?.email ?? '?')[0]?.toUpperCase()}
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">
+              <p className="truncate text-sm font-bold">
                 {user?.name ?? 'User'}
               </p>
-              <p className="truncate text-xs text-gray-500">{user?.email}</p>
+              <p className="truncate text-xs text-muted">{user?.email}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={handleLogout}
-            className="mt-1 w-full rounded-lg px-3 py-2 text-left text-sm text-gray-600 hover:bg-gray-100"
+            className="btn-ghost mt-1 w-full"
           >
             Sign out
           </button>

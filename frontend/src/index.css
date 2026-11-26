@@ -1,14 +1,75 @@
 @import 'tailwindcss';
 
+/* Dark design system (D-015, .claude/design/DESIGN-spotify.md §2/§6).
+   Hex values live only here; components use the semantic tokens. */
 @theme {
-  --color-brand-50: #faf5ff;
-  --color-brand-100: #f3e8ff;
-  --color-brand-200: #e9d5ff;
-  --color-brand-300: #d8b4fe;
-  --color-brand-400: #c084fc;
-  --color-brand-500: #aa3bff;
-  --color-brand-600: #9333ea;
-  --color-brand-700: #7e22ce;
+  --font-sans:
+    'Helvetica Neue', Helvetica, Arial, Pretendard, 'Apple SD Gothic Neo',
+    'Malgun Gothic', 'Noto Sans KR', sans-serif;
+
+  /* Surfaces, darkest → lightest */
+  --color-canvas: #121212;
+  --color-surface: #181818;
+  --color-surface-2: #1f1f1f;
+  --color-surface-3: #252525;
+  --color-surface-4: #272727;
+
+  /* Text */
+  --color-fg: #ffffff;
+  --color-muted: #b3b3b3;
+  --color-soft: #cbcbcb;
+
+  /* Accent: primary CTA, active and status only — never decorative */
+  --color-primary: #1ed760;
+  --color-primary-strong: #1db954;
+
+  /* Semantic */
+  --color-negative: #f3727f;
+  --color-warning: #ffa42b;
+  --color-info: #539df5;
+
+  /* Borders */
+  --color-line: #4d4d4d;
+  --color-line-strong: #7c7c7c;
+
+  --shadow-medium: 0 8px 8px rgb(0 0 0 / 0.3);
+  --shadow-heavy: 0 8px 24px rgb(0 0 0 / 0.5);
+  --shadow-inset-border:
+    0 1px 0 var(--color-canvas), inset 0 0 0 1px var(--color-line-strong);
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1.33;
+  --tracking-button: 1.4px;
+}
+
+/* Shared control styles (used in 2+ components). */
+@utility btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold tracking-button text-black uppercase transition hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary;
+}
+
+@utility btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-line-strong px-4 py-1.5 text-sm font-bold text-fg transition hover:border-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line-strong;
+}
+
+@utility btn-ghost {
+  @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm text-muted transition hover:bg-surface-3 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility btn-danger {
+  @apply inline-flex items-center justify-center gap-2 rounded-full border border-negative px-4 py-1.5 text-sm font-bold text-negative transition hover:bg-negative/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+/* Single-line inputs and selects are pills; textareas get rounded-lg. */
+@utility field {
+  @apply w-full rounded-full bg-surface-2 px-4 py-2 text-sm text-fg shadow-inset-border outline-none transition placeholder:text-muted hover:bg-surface-3 focus:ring-2 focus:ring-fg disabled:cursor-not-allowed disabled:opacity-50;
+
+  &:is(textarea) {
+    @apply rounded-lg;
+  }
+}
+
+html {
+  color-scheme: dark;
 }
 
 html,
@@ -19,4 +80,5 @@ body,
 
 body {
   margin: 0;
+  @apply bg-canvas font-sans text-fg antialiased;
 }

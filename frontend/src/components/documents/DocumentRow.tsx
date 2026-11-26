@@ -24,12 +24,12 @@ export default function DocumentRow({
   )
 
   return (
-    <li className="px-5 py-3.5">
+    <li className="px-5 py-3.5 transition hover:bg-surface-2">
       <div className="flex items-center gap-4">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="grid size-6 place-items-center rounded text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+          className="grid size-6 place-items-center rounded-full text-muted transition hover:bg-surface-3 hover:text-fg focus-visible:outline-2 focus-visible:outline-fg"
           aria-label={expanded ? 'Collapse' : 'Expand'}
           aria-expanded={expanded}
         >
@@ -37,10 +37,10 @@ export default function DocumentRow({
         </button>
         <span className="text-xl">📄</span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-gray-900">
+          <p className="truncate text-sm font-bold">
             {document.filename}
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted">
             {document.chunk_count}{' '}
             {document.chunk_count === 1 ? 'chunk' : 'chunks'}
             {document.created_at ? ` · ${formatDate(document.created_at)}` : ''}
@@ -50,7 +50,7 @@ export default function DocumentRow({
           type="button"
           onClick={() => onDelete(document.document_id)}
           disabled={deleting}
-          className="rounded-lg px-2 py-1 text-sm text-gray-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+          className="btn-danger"
           aria-label={`Delete ${document.filename}`}
         >
           Delete
@@ -60,19 +60,19 @@ export default function DocumentRow({
       {expanded && (
         <div className="mt-3 space-y-2 pl-10">
           {isLoading ? (
-            <p className="text-xs text-gray-400">Loading chunks…</p>
+            <p className="text-xs text-muted">Loading chunks…</p>
           ) : !chunks || chunks.length === 0 ? (
-            <p className="text-xs text-gray-400">No chunks found.</p>
+            <p className="text-xs text-muted">No chunks found.</p>
           ) : (
             chunks.map((chunk) => (
               <div
                 key={chunk.chunk_id}
-                className="rounded-lg bg-gray-50 px-3 py-2"
+                className="rounded-md bg-canvas px-3 py-2"
               >
-                <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                <p className="mb-1 text-2xs font-bold uppercase tracking-wide text-muted">
                   Chunk #{chunk.chunk_index}
                 </p>
-                <p className="line-clamp-4 whitespace-pre-wrap text-xs text-gray-600">
+                <p className="line-clamp-4 whitespace-pre-wrap text-xs text-soft">
                   {chunk.text}
                 </p>
               </div>

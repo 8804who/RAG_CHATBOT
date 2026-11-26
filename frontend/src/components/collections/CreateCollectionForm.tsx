@@ -16,9 +16,7 @@ interface CreateCollectionFormProps {
 const DISTANCES: VectorDistance[] = ['Cosine', 'Dot', 'Euclid', 'Manhattan']
 const SPARSE_MODIFIERS: SparseModifier[] = ['idf', 'none']
 
-const fieldClass =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100'
-const labelClass = 'mb-1 block text-sm font-medium text-gray-700'
+const labelClass = 'mb-1 block text-sm font-bold'
 
 export default function CreateCollectionForm({
   onSubmit,
@@ -73,13 +71,13 @@ export default function CreateCollectionForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-5 rounded-2xl border border-gray-200 bg-white p-6"
+      className="space-y-5 rounded-lg bg-surface p-6"
     >
       <div>
-        <h2 className="text-base font-semibold text-gray-900">
+        <h2 className="text-base font-bold">
           Create collection
         </h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted">
           Define the vector space for a new Qdrant collection.
         </p>
       </div>
@@ -94,7 +92,7 @@ export default function CreateCollectionForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="my-knowledge-base"
-          className={fieldClass}
+          className="field"
         />
       </div>
 
@@ -108,7 +106,7 @@ export default function CreateCollectionForm({
           onChange={(e) => setDescription(e.target.value)}
           placeholder="What kind of documents live here? Shown to the RAG agent so it can pick this collection for relevant questions."
           rows={2}
-          className={fieldClass}
+          className="field"
         />
       </div>
 
@@ -121,7 +119,7 @@ export default function CreateCollectionForm({
           value={modelName}
           onChange={(e) => setModelOverride(e.target.value)}
           disabled={modelsLoading || !models || models.length === 0}
-          className={fieldClass}
+          className="field"
         >
           {modelsLoading ? (
             <option value="">Loading models…</option>
@@ -135,7 +133,7 @@ export default function CreateCollectionForm({
             ))
           )}
         </select>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-muted">
           The vector dimension ({dimension || '—'}) is fixed by the chosen model
           and pinned to the collection.
         </p>
@@ -149,7 +147,7 @@ export default function CreateCollectionForm({
           id="distance"
           value={distance}
           onChange={(e) => setDistance(e.target.value as VectorDistance)}
-          className={fieldClass}
+          className="field"
         >
           {DISTANCES.map((d) => (
             <option key={d} value={d}>
@@ -159,13 +157,13 @@ export default function CreateCollectionForm({
         </select>
       </div>
 
-      <div className="space-y-3 rounded-xl bg-gray-50 p-4">
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+      <div className="space-y-3 rounded-lg bg-surface-2 p-4">
+        <label className="flex items-center gap-2 text-sm font-bold">
           <input
             type="checkbox"
             checked={enableSparse}
             onChange={(e) => setEnableSparse(e.target.checked)}
-            className="size-4 rounded border-gray-300 text-brand-500 focus:ring-brand-400"
+            className="size-4 accent-primary"
           />
           Add sparse vectors (hybrid search)
         </label>
@@ -178,7 +176,7 @@ export default function CreateCollectionForm({
               id="modifier"
               value={modifier}
               onChange={(e) => setModifier(e.target.value as SparseModifier)}
-              className={fieldClass}
+              className="field"
             >
               {SPARSE_MODIFIERS.map((m) => (
                 <option key={m} value={m}>
@@ -191,28 +189,28 @@ export default function CreateCollectionForm({
       </div>
 
       <div className="flex flex-wrap gap-x-6 gap-y-2">
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm text-soft">
           <input
             type="checkbox"
             checked={denseOnDisk}
             onChange={(e) => setDenseOnDisk(e.target.checked)}
-            className="size-4 rounded border-gray-300 text-brand-500 focus:ring-brand-400"
+            className="size-4 accent-primary"
           />
           Store dense vectors on disk
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm text-soft">
           <input
             type="checkbox"
             checked={onDiskPayload}
             onChange={(e) => setOnDiskPayload(e.target.checked)}
-            className="size-4 rounded border-gray-300 text-brand-500 focus:ring-brand-400"
+            className="size-4 accent-primary"
           />
           Store payload on disk
         </label>
       </div>
 
       {error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+        <p className="rounded-lg bg-negative/10 px-3 py-2 text-sm text-negative">
           {error}
         </p>
       )}
@@ -220,7 +218,7 @@ export default function CreateCollectionForm({
       <button
         type="submit"
         disabled={!canSubmit}
-        className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
+        className="btn-primary"
       >
         {busy ? 'Creating…' : 'Create collection'}
       </button>

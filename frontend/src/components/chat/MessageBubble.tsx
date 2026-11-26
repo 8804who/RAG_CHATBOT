@@ -7,10 +7,10 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-2xl ${isUser ? 'items-end' : 'items-start'}`}>
         <div
-          className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+          className={`whitespace-pre-wrap rounded-lg px-4 py-3 text-sm leading-normal ${
             isUser
-              ? 'bg-brand-500 text-white'
-              : 'border border-gray-200 bg-white text-gray-800'
+              ? 'bg-surface-3 text-fg'
+              : 'bg-surface text-fg'
           }`}
         >
           {message.content}
@@ -18,11 +18,11 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
 
         {message.citations && message.citations.length > 0 && (
           <div className="mt-2 space-y-1.5">
-            <p className="text-xs font-medium text-gray-400">Sources</p>
+            <p className="text-xs font-bold text-muted">Sources</p>
             {message.citations.map((c, i) => (
               <div
                 key={c.sourceType === 'web' ? (c.url ?? i) : (c.chunkId ?? i)}
-                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
+                className="rounded-md bg-surface-2 px-3 py-2 text-xs text-muted"
               >
                 {c.sourceType === 'web' ? (
                   c.url ? (
@@ -30,18 +30,18 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
                       href={c.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium text-gray-700 hover:underline"
+                      className="font-bold text-fg hover:underline"
                     >
                       🌐 {c.title}
                     </a>
                   ) : (
-                    <p className="font-medium text-gray-700">🌐 {c.title}</p>
+                    <p className="font-bold text-fg">🌐 {c.title}</p>
                   )
                 ) : (
-                  <p className="font-medium text-gray-700">
+                  <p className="font-bold text-fg">
                     📄 {c.title}
                     {c.collectionName && (
-                      <span className="ml-1.5 rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-normal text-gray-500">
+                      <span className="ml-1.5 rounded-full bg-surface-4 px-1.5 py-0.5 text-2xs font-normal text-soft">
                         {c.collectionName}
                       </span>
                     )}
