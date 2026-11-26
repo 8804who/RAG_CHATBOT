@@ -1,4 +1,6 @@
 # Frontend design rules
+
+> **Visual system: [`.claude/design/DESIGN-spotify.md`](../design/DESIGN-spotify.md)** (D-015). It wins over any visual rule below (dark theme, green accent, pill buttons, heavy shadows on dark). The rules below still bind for UX, forms, accessibility, and responsiveness. Use the system's look, not Spotify's brand: no Spotify name, logo, or proprietary fonts.
 ## Design principles
 - Aim for a clean, modern UI
 - Minimize unnecessary decoration
@@ -15,10 +17,8 @@
 - The same input form style
 - The same spacing rules
 
-### Reference designs
-- Instagram's simple, intuitive UI
-- LinkedIn's professional, trustworthy UI
-- Aim for a clean SaaS style that combines the strengths of both
+### Reference design
+- `DESIGN-spotify.md`: dark, content-first, dense app UI
 
 ## Color rules
 ### Primary color
@@ -30,8 +30,8 @@
 - Used for status and emphasis
 
 ### Neutral color
-- Grays for backgrounds and text
-- Minimize pure black (#000000)
+- Near-black/charcoal surfaces (`#121212`–`#272727`) and white/silver text
+- Pure black (#000000) only for icons on the green accent
 
 ### Principles
 - No excessive colors on one screen
@@ -53,7 +53,7 @@
 
 ## Card design
 - Rounded corners
-- No heavy shadows
+- Shadows per DESIGN-spotify.md §6 (heavy shadows are needed on dark)
 - Provide a hover state
 - Consistent inner padding
 
@@ -114,7 +114,6 @@
 
 ## Don't
 - Excessive animation
-- Heavy shadows
 - Excessive gradients
 - Mixing several design styles on one page
 - Meaningless colors

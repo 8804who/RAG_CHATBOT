@@ -50,9 +50,9 @@ export default function DocumentsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-lg font-semibold">Documents</h1>
-        <p className="text-sm text-gray-500">
+      <header className="border-b border-surface-2 px-6 py-4">
+        <h1 className="text-2xl font-bold">Documents</h1>
+        <p className="text-sm text-muted">
           Upload documents into a collection — they are chunked and embedded with
           the collection&apos;s pinned model for retrieval.
         </p>
@@ -63,7 +63,7 @@ export default function DocumentsPage() {
           <div>
             <label
               htmlFor="collection-select"
-              className="mb-1 block text-sm font-medium text-gray-700"
+              className="mb-1 block text-sm font-bold"
             >
               Collection
             </label>
@@ -72,7 +72,7 @@ export default function DocumentsPage() {
               value={selected ?? ''}
               onChange={(e) => setOverride(e.target.value || null)}
               disabled={!hasCollections}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-100 disabled:bg-gray-50"
+              className="field"
             >
               {!hasCollections ? (
                 <option value="">No collections — create one first</option>
@@ -97,7 +97,7 @@ export default function DocumentsPage() {
               />
 
               {ingest.isError && (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">
+                <p className="rounded-lg bg-negative/10 px-3 py-2 text-sm text-negative">
                   {ingestErrorMessage(ingest.error)}
                 </p>
               )}
@@ -106,13 +106,13 @@ export default function DocumentsPage() {
                 <IngestProgress status={ingestStatus} />
               )}
 
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-                  <h2 className="text-sm font-semibold text-gray-900">
+              <div className="overflow-hidden rounded-lg bg-surface">
+                <div className="flex items-center justify-between border-b border-canvas px-5 py-3">
+                  <h2 className="text-base font-bold">
                     Documents in this collection
                   </h2>
                   {documents && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-muted">
                       {documents.length}{' '}
                       {documents.length === 1 ? 'document' : 'documents'}
                     </span>
@@ -120,15 +120,15 @@ export default function DocumentsPage() {
                 </div>
 
                 {docsLoading ? (
-                  <p className="px-5 py-8 text-center text-sm text-gray-400">
+                  <p className="px-5 py-8 text-center text-sm text-muted">
                     Loading documents…
                   </p>
                 ) : !documents || documents.length === 0 ? (
-                  <p className="px-5 py-8 text-center text-sm text-gray-400">
+                  <p className="px-5 py-8 text-center text-sm text-muted">
                     No documents yet. Upload one above to get started.
                   </p>
                 ) : (
-                  <ul className="divide-y divide-gray-100">
+                  <ul className="divide-y divide-canvas">
                     {documents.map((document) => (
                       <DocumentRow
                         key={document.document_id}

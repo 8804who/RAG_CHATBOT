@@ -105,3 +105,23 @@ Checked and fine:
 | 1 | Minor | `WorkerImage.Dockerfile:14` | compileall also walks the `.venv` site-packages. Some packages may ship deliberate syntax-error files (test data etc.); then the exit code is 1 even with `-q` and the build can break. uv's own compile ignores per-file failures | `python -m compileall -q -x '/\.venv/' /app` (app code only, also removes the duplicate walk) | plausible (build not confirmed) | open; apply if the build fails |
 
 Not reviewed: real image build (#1 needs confirming), whether `__pycache__` is used after start. Re-review: not needed.
+
+### CR-011 · 2026-11-26 · frontend-code-reviewer · T-032 (Spotify-style dark re-theme, D-015)
+- Reviewed: `git diff` of `frontend/src` (19 files, className/token changes), `frontend/src/index.css` (`@theme` + 5 `@utility`), spec §2/§4/§6/§7, `.claude/.rules/design.md`
+- Verdict: PASS_WITH_NOTES
+- Verification: `npm run build` OK (103 modules, CSS 29.8 kB); `npm run lint` clean (0 problems). Built CSS inspected: `.field`, `.field:is(textarea)`, `.btn-primary:disabled(:hover)` are emitted correctly, so `@theme`/`@utility`/`@apply` usage is valid in Tailwind v4.
+
+Checked and fine:
+- Logic: the non-className diff lines are only removed `fieldClass`/`selectClass` constants replaced by `field`; no handler, hook, API, or routing change.
+- Contrast (WCAG): muted #b3b3b3 on canvas 8.9, surface-3 7.3, surface-4 7.1; black on #1ed760 10.9; negative on surface 6.4 / surface-3 5.5; warning 9.0; info 6.4; primary on canvas 9.8. All pass AA.
+- States: every `btn-*` has hover, disabled (+ `disabled:hover` reset), focus-visible; `field` has hover/focus ring/disabled; nav link got focus-visible.
+- No leftover `gray/brand/white` classes or inline styles. Remaining hex is only the Google logo fills (known).
+
+| # | Severity | Location | Problem | Fix | Confidence | Handling |
+|---|---|---|---|---|---|---|
+| 1 | Minor | `UploadZone.tsx:30` | Idle dashed border `border-line` #4d4d4d on canvas/surface is 2.2:1 (<3:1 non-text contrast, WCAG 1.4.11). It is the only affordance outlining the drop target | Use `border-line-strong` (#7c7c7c, ~4:1) for idle | confirmed (computed) | open |
+| 2 | Minor | `MessageBubble.tsx:12-14` | User bubble `bg-surface-3` (#252525) vs assistant `bg-surface` (#181818) on canvas #121212 differ only slightly (~1.1 to 1.2:1); the roles are distinguished mainly by alignment | Acceptable if alignment is kept; optional: a visible cue (label or stronger surface) | plausible | accepted |
+| 3 | Minor | `index.css` `btn-ghost` | No `justify-center`, unlike the other buttons, so `w-full` use in `Layout.tsx:73` left-aligns the label (probably intended) | None unless centered is wanted | plausible | accepted |
+
+Not reviewed: visual check in a running browser (no screenshot pass); the known leftovers listed in the brief.
+- Re-review: not needed

@@ -1,9 +1,9 @@
 import type { DocumentStatus } from '../../lib/types'
 
 const styles: Record<DocumentStatus, string> = {
-  ready: 'bg-green-50 text-green-700 ring-green-600/20',
-  processing: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-  failed: 'bg-red-50 text-red-700 ring-red-600/20',
+  ready: 'bg-primary/10 text-primary ring-primary/30',
+  processing: 'bg-warning/10 text-warning ring-warning/30',
+  failed: 'bg-negative/10 text-negative ring-negative/30',
 }
 
 const labels: Record<DocumentStatus, string> = {

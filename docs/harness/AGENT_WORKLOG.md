@@ -73,3 +73,10 @@
 - Issues found: only 24/60 RAG cases call search_documents (rest tavily) → P20; 8 nonrag forbidden tavily, 3 over maxToolCalls → P21; 2 calc arg errors → P22; precision ceiling ~1/7 on 15-chunk collection → P23 (threshold decision open)
 - Follow-up: 2 more v2 runs for variance; A1 force-search experiment
 - Shipped: PR #7 (harness), PR #8 (baselines), docs PR (plan + harness docs)
+
+### 2026-11-26 · frontend-developer + frontend-code-reviewer · T-032
+- Work: D-015 recorded, `.claude/.rules/design.md` points at `.claude/design/DESIGN-spotify.md`; whole SPA re-themed dark (semantic `@theme` tokens, `btn-*`/`field` utilities in `index.css`, className-only changes in 19 files)
+- Files: `frontend/src/**`, `docs/harness/DESIGN_GUIDELINES.md`, `.claude/.rules/design.md`, `docs/harness/DECISION_LOG.md`
+- Verification: build + lint OK (developer, reviewer, and main session re-run); Playwright screenshots against mocked API, backend not running
+- Review: CR-011 PASS_WITH_NOTES; KI-030 (drop-zone border contrast) fixed by main session
+- Follow-up: unused `StatusBadge.tsx`; sidebar not collapsing on mobile; sub-44px touch targets (pre-existing)

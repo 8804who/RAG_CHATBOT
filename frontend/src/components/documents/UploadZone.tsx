@@ -24,22 +24,22 @@ export default function UploadZone({ onUpload, busy }: UploadZoneProps) {
       }}
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
-      className={`flex flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-10 text-center transition ${
+      className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center transition ${
         dragging
-          ? 'border-brand-400 bg-brand-50'
-          : 'border-gray-300 bg-white hover:border-gray-400'
+          ? 'border-primary bg-surface-2'
+          : 'border-line-strong bg-surface hover:border-muted'
       }`}
     >
       <span className="mb-2 text-3xl">📥</span>
-      <p className="text-sm font-medium text-gray-700">
+      <p className="text-sm font-bold">
         Drag &amp; drop documents here
       </p>
-      <p className="mt-0.5 text-xs text-gray-500">PDF, Markdown, Word, or text</p>
+      <p className="mt-0.5 text-xs text-muted">PDF, Markdown, Word, or text</p>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="mt-4 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-600 disabled:opacity-50"
+        className="btn-primary mt-4"
       >
         {busy ? 'Uploading…' : 'Browse files'}
       </button>

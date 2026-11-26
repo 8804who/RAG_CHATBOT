@@ -40,6 +40,7 @@ Priority: `P0` (urgent/blocking) · `P1` (current scope) · `P2` (later)
 | T-029 | Eval v2 data: sourced non-paper docs (`eval/test-data/v2/`) + 5 datasets ko-rag/en-rag/ko-nonrag/en-nonrag/tool (`eval/fixtures/v2/`) with source URLs | `rag-llm-scientist` | P1 | T-028 | Every fact traceable to a fetched URL; sizes ~30/30/15/15/20; schema per T-030 | COMPLETED | PM: 5 files load, counts 30/30/15/15/20, 10 docs with Source headers | KI-025, KI-026 |
 | T-030 | Eval v2 harness: resolve ids by title, retrieved doc/chunk recording + recall/precision, stronger judge w/ context (correctness + groundedness), non-RAG + tool assertions, tool sequence in results, `EVAL_DATASET` | `rag-llm-engineer` | P1 | — | `npx tsc --noEmit` passes; results JSON/MD carry dataset + tool sequence per case | COMPLETED | PM: tsc OK, unit 3/3; full 110-case run done in T-031, 0 errored. Merged PR #7 | KI-025, KI-026 |
 | T-031 | Ingest v2 docs into `rag_eval_v2`, run full v2 baseline, update eval/README + RAG_IMPROVEMENT_PLAN §3.1/§5 | `rag-llm-engineer` | P1 | T-029, T-030 | `eval/results/2026-11-21-baseline-v2.{json,md}` with all cases | COMPLETED | PM: 110/110 case records, 36 pass; rag_eval_v2 10/10 INDEXED. Merged PR #8; plan §0/§1.1/§2 P20-P23/§4 updated | KI-025, KI-026 |
+| T-032 | Adopt Spotify-inspired design system (D-015): update design rules, re-theme all of `frontend/src` dark | `frontend-developer` | P2 | — | build + lint pass; no light-theme/hardcoded colors; AA contrast | COMPLETED | CR-011 PASS_WITH_NOTES; KI-030 fixed by main session; build/lint OK; Playwright screenshots with mocked API (backend down) | D-015, CR-011, KI-030 |
 
 ## Skipped phases
 
@@ -62,6 +63,7 @@ Priority: `P0` (urgent/blocking) · `P1` (current scope) · `P2` (later)
 | T-029~T-031 | Complexity: T2 (eval tooling + new test data; LLM-path quality measurement; user add-on: tool-calling dataset). No backend/frontend app code, no contract change | — | — |
 | T-029~T-031 | `backend-code-reviewer`, `frontend-code-reviewer` | `eval/` TS tooling only, no matching reviewer (same as T-027) | PM runs `npx tsc --noEmit` and reviews the diff |
 | T-029~T-031 | `system-architect`, `ux-designer`, `qa-engineer`, `backend-developer`, `frontend-developer` | No architecture, UI, or app behavior change | — |
+| T-032 | `ux-designer`, `qa-engineer` | User supplied the design spec; visual-only change, no flow change; backend not running for E2E | developer Playwright screenshots (mocked API) + CR-011 contrast check |
 
 ## Completed outside the board flow
 

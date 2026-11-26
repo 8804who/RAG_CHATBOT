@@ -24,9 +24,9 @@ export default function CollectionsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-gray-200 bg-white px-6 py-4">
-        <h1 className="text-lg font-semibold">Collections</h1>
-        <p className="text-sm text-gray-500">
+      <header className="border-b border-surface-2 px-6 py-4">
+        <h1 className="text-2xl font-bold">Collections</h1>
+        <p className="text-sm text-muted">
           Manage the Qdrant vector collections that back retrieval.
         </p>
       </header>
@@ -39,13 +39,13 @@ export default function CollectionsPage() {
             error={createErrorMessage(create.error)}
           />
 
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
-              <h2 className="text-sm font-semibold text-gray-900">
+          <div className="overflow-hidden rounded-lg bg-surface">
+            <div className="flex items-center justify-between border-b border-canvas px-5 py-3">
+              <h2 className="text-base font-bold">
                 Existing collections
               </h2>
               {collections && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted">
                   {collections.length}{' '}
                   {collections.length === 1 ? 'collection' : 'collections'}
                 </span>
@@ -53,19 +53,19 @@ export default function CollectionsPage() {
             </div>
 
             {isLoading ? (
-              <p className="px-5 py-8 text-center text-sm text-gray-400">
+              <p className="px-5 py-8 text-center text-sm text-muted">
                 Loading collections…
               </p>
             ) : isError ? (
-              <p className="px-5 py-8 text-center text-sm text-red-500">
+              <p className="px-5 py-8 text-center text-sm text-negative">
                 Could not load collections.
               </p>
             ) : !collections || collections.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-gray-400">
+              <p className="px-5 py-8 text-center text-sm text-muted">
                 No collections yet. Create one above to get started.
               </p>
             ) : (
-              <ul className="divide-y divide-gray-100">
+              <ul className="divide-y divide-canvas">
                 {collections.map((collection) => (
                   <CollectionListItem
                     key={collection.name}
