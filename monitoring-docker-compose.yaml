@@ -19,7 +19,7 @@ services:
         --storage.tsdb.path=/prometheus
         --storage.tsdb.retention.time=7d
     ports:
-      - "127.0.0.1:9090:9090"
+      - "9090:9090"
     # 호스트의 API(:8000) 스크레이프용. macOS는 기본 지원, Linux 호환을 위해 명시.
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -31,8 +31,11 @@ services:
     image: grafana/grafana:12.0.0
     container_name: grafana
     restart: unless-stopped
+    # admin 비밀번호는 docker.env 의 GF_SECURITY_ADMIN_PASSWORD 로 지정한다 (기본값 admin/admin).
+    env_file:
+      - docker.env
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     volumes:
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana_data:/var/lib/grafana
