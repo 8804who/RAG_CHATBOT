@@ -15,6 +15,27 @@ DEFAULT_RETRIEVAL_TOP_K = 8
 # 채팅 생성 응답의 서버 강제 상한 토큰 수(프론트 값 불신, 비용/DoS 방어)
 DEFAULT_CHAT_MAX_COMPLETION_TOKENS = 1024
 
+# 채팅 모델 호출 1회의 HTTP 타임아웃(초)과 SDK 재시도 횟수
+CHAT_MODEL_TIMEOUT_SECONDS = 60
+CHAT_MODEL_MAX_RETRIES = 2
+
+# 에이전트 한 턴 전체의 실행 상한(초). 넘으면 턴을 실패 처리하고 롤백한다.
+CHAT_TURN_TIMEOUT_SECONDS = 240
+
+# 채팅별 동시 턴 잠금(Redis SET NX EX). TTL은 턴 상한보다 길어야 실행 중 만료되지 않는다.
+CHAT_TURN_LOCK_KEY_PREFIX = "chat:turn-lock:"
+CHAT_TURN_LOCK_TTL_SECONDS = CHAT_TURN_TIMEOUT_SECONDS + 60
+
+# 멀티턴 대화 요약(SummarizationMiddleware). 체크포인터에 쌓인 스레드 메시지가
+# TRIGGER 토큰을 넘으면 오래된 메시지를 요약 1개로 대체하고 최근 KEEP개만 원문 유지.
+# 검색 결과가 커서 낮은 값이면 거의 매 턴 요약이 돈다(T-036 #7). 요약은 가장 싼 등록 모델로.
+CHAT_SUMMARY_TRIGGER_TOKENS = 30000
+CHAT_SUMMARY_KEEP_MESSAGES = 6
+CHAT_SUMMARY_MODEL = "gpt-4o-mini"
+
+# LangGraph 체크포인터(psycopg) 커넥션 풀 최대 크기 = 동시에 실행 가능한 에이전트 턴 수
+CHECKPOINTER_POOL_MAX_SIZE = 10
+
 # API 호출 로그 처리 상태(ApiCallLogMiddleware)
 API_CALL_STATUS_SUCCESS = "success"
 API_CALL_STATUS_FAILED = "failed"

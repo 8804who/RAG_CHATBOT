@@ -195,6 +195,21 @@ class ChatMessageResponse(BaseModel):
     citations: list[CitationResponse]
 
 
+class ChatHistoryMessageResponse(BaseModel):
+    # 저장된 채팅 메시지 1건. 사용자 메시지는 citations가 빈 목록.
+    role: str
+    content: str
+    citations: list[CitationResponse]
+    created_at: datetime
+
+
+class ChatHistoryResponse(BaseModel):
+    # 채팅 재진입 시 화면 복원용: 고정된 모델·컬렉션 + 메시지(오래된 순).
+    chat_model: str
+    collection_name: str | None
+    messages: list[ChatHistoryMessageResponse]
+
+
 ### Usage stats (My page)
 class EmbeddingUsageStat(BaseModel):
     # 모델별 임베딩 사용량 + 비용. cost는 단가 미등록 시 None.

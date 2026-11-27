@@ -1,17 +1,45 @@
+import asyncio
 import json
 import logging
+from collections.abc import Coroutine
 from dataclasses import asdict
+from typing import Any
 
 from langchain.agents import create_agent
-from langchain_core.messages import AIMessage, ToolMessage
-from sqlalchemy.ext.asyncio import AsyncSession
+from langchain.agents.middleware import SummarizationMiddleware
+from langchain_core.callbacks import UsageMetadataCallbackHandler
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    HumanMessage,
+    RemoveMessage,
+    ToolMessage,
+)
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.graph.message import REMOVE_ALL_MESSAGES
+from langgraph.graph.state import CompiledStateGraph
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from core.constants import AGENT_RECURSION_LIMIT, AGENT_SYSTEM_PROMPT
-from exceptions.chat import ChatAccessDeniedError, ChatNotFoundError
+from clients import RedisClient
+from core.constants import (
+    AGENT_RECURSION_LIMIT,
+    AGENT_SYSTEM_PROMPT,
+    CHAT_SUMMARY_KEEP_MESSAGES,
+    CHAT_SUMMARY_MODEL,
+    CHAT_SUMMARY_TRIGGER_TOKENS,
+    CHAT_TURN_LOCK_KEY_PREFIX,
+    CHAT_TURN_LOCK_TTL_SECONDS,
+    CHAT_TURN_TIMEOUT_SECONDS,
+)
+from exceptions.chat import (
+    ChatAccessDeniedError,
+    ChatNotFoundError,
+    ChatTurnInProgressError,
+)
 from exceptions.document import CollectionMetaNotFoundError
-from models import Chat, ChatMessageRole, User
+from models import Chat, User
 from repositories import ChatRepository, CollectionMetadataRepository, LogRepository
-from schemes.dto.chat import Citation, ChatTurnResult
+from schemes.dto.chat import ChatHistory, ChatTurnResult, Citation, TurnUsage
 from services.agent.tools import (
     ARXIV_SEARCH_TOOL_NAME,
     RETRIEVAL_TOOL_NAME,
@@ -39,6 +67,11 @@ class AgentChatOrchestrator:
     사용량 조회)를 구성해 LangChain의 create_agent 루프에 맡긴다. 에이전트가
     스스로 도구 호출 여부·횟수·검색 대상 컬렉션을 결정한다(멀티스텝 가능).
     provider/모델 세부사항은 알지 못한다(레지스트리 뒤로 숨겨짐).
+
+    멀티턴: 체크포인터가 chat_id를 thread_id로 에이전트 상태(이전 메시지·도구 결과)를
+    저장/복원하고, 길어지면 SummarizationMiddleware가 오래된 메시지를 요약으로 대체한다.
+    한 턴은 전부 아니면 전무(D-016): 실패하면 스레드를 턴 시작 전으로 되돌리고
+    chat_messages에는 성공한 턴만 저장한다. 채팅당 동시 턴은 Redis 잠금으로 1개.
     """
 
     def __init__(
@@ -50,6 +83,9 @@ class AgentChatOrchestrator:
         usage_stats_service: UsageStatsService,
         log_repository: LogRepository,
         langfuse_handler,
+        checkpointer: BaseCheckpointSaver,
+        redis_client: RedisClient,
+        session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         self._chats = chat_repository
         self._chat_model_registry = chat_model_registry
@@ -58,6 +94,9 @@ class AgentChatOrchestrator:
         self._usage_stats = usage_stats_service
         self._log_repository = log_repository
         self._langfuse_handler = langfuse_handler
+        self._checkpointer = checkpointer
+        self._redis = redis_client
+        self._session_factory = session_factory
 
     async def create_chat(
         self,
@@ -109,13 +148,36 @@ class AgentChatOrchestrator:
         )
         return chat
 
+    async def get_messages(
+        self, db: AsyncSession, *, chat_id: str, requester: User
+    ) -> ChatHistory:
+        """
+        채팅 이력 조회(소유자만, 오래된 순)
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            chat_id(str): 채팅 세션 id
+            requester(User): 요청 사용자(소유권 검증용)
+
+        Returns:
+            ChatHistory: 채팅 모델·컬렉션 + 메시지 목록
+        """
+        chat = await self._get_owned_chat(db, chat_id, requester, "get_messages")
+        messages = await self._chats.list_messages(db, chat_id)
+        return ChatHistory(
+            chat_model=chat.chat_model,
+            collection_name=chat.collection_name,
+            messages=messages,
+        )
+
     async def send_message(
         self, db: AsyncSession, *, chat_id: str, query: str, requester: User
     ) -> ChatTurnResult:
         """
         한 사용자 질의에 대한 답변을 에이전트로 생성한다
 
-        (도구 구성 → 에이전트 실행(멀티스텝 가능) → 메시지 영속화 → 사용량 기록)
+        (소유권 검증 → 채팅 잠금 → 에이전트 실행(실패 시 스레드 롤백) →
+        성공 턴만 메시지·사용량 영속화 → 체크포인트 정리 → 잠금 해제)
 
         Parameters:
             db(AsyncSession): DB 세션
@@ -126,121 +188,261 @@ class AgentChatOrchestrator:
         Returns:
             ChatTurnResult: 답변 + 인용 목록
         """
-        chat = await self._chats.get_chat(db, chat_id)
-        if chat is None:
-            raise ChatNotFoundError(
-                message=f"chat '{chat_id}' not found",
+        chat = await self._get_owned_chat(db, chat_id, requester, "send_message")
+        # LLM 루프 동안 요청 세션이 idle-in-transaction으로 커넥션을 붙잡지 않도록
+        # 읽기 트랜잭션을 여기서 끝낸다(expire_on_commit=False라 객체는 그대로 사용).
+        await db.commit()
+
+        lock_key = f"{CHAT_TURN_LOCK_KEY_PREFIX}{chat_id}"
+        if not await self._redis.set_if_absent(
+            lock_key, str(requester.id), ex=CHAT_TURN_LOCK_TTL_SECONDS
+        ):
+            logger.warning("채팅 턴 중복 요청: chat_id=%s", chat_id)
+            raise ChatTurnInProgressError(
+                message=ChatTurnInProgressError.response_message,
                 code_path="agent_chat_orchestrator-send_message-error",
+            )
+
+        try:
+            return await self._run_turn(db, chat, query, requester)
+        finally:
+            # ponytail: 소유 토큰 비교 없이 삭제. 턴 상한(asyncio.timeout) < TTL이라
+            # 실행 중 만료돼 남의 잠금을 지울 일은 없다.
+            await self._redis.delete(lock_key)
+
+    async def _get_owned_chat(
+        self, db: AsyncSession, chat_id: str, requester: User, action: str
+    ) -> Chat:
+        """
+        채팅 조회 + 소유권 검증(없으면 404, 남의 채팅이면 403)
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            chat_id(str): 채팅 세션 id
+            requester(User): 요청 사용자
+            action(str): code_path에 남길 호출 함수명
+
+        Returns:
+            Chat: 요청자가 소유한 채팅
+        """
+        code_path = f"agent_chat_orchestrator-{action}-error"
+        chat = await self._chats.get_chat(db, chat_id)
+        # 클라이언트 메시지는 일반 문구만, id는 로그에만 남긴다(KI-058).
+        if chat is None:
+            logger.warning(
+                "채팅 조회 실패: chat_id=%s, requester_id=%s", chat_id, requester.id
+            )
+            raise ChatNotFoundError(
+                message=ChatNotFoundError.response_message, code_path=code_path
             )
         if chat.owner_id != requester.id:
-            raise ChatAccessDeniedError(
-                message=f"user '{requester.id}' has no access to chat '{chat_id}'",
-                code_path="agent_chat_orchestrator-send_message-error",
+            logger.warning(
+                "채팅 접근 거부: chat_id=%s, requester_id=%s", chat_id, requester.id
             )
+            raise ChatAccessDeniedError(
+                message=ChatAccessDeniedError.response_message, code_path=code_path
+            )
+        return chat
 
-        await self._chats.add_message(
-            db, chat_id=chat_id, role=ChatMessageRole.USER, content=query
-        )
+    async def _run_turn(
+        self, db: AsyncSession, chat: Chat, query: str, requester: User
+    ) -> ChatTurnResult:
+        """
+        잠금을 잡은 상태에서 에이전트 한 턴 실행 + 성공 시 영속화
 
+        Parameters:
+            db(AsyncSession): 요청 DB 세션(실행 후 영속화에만 사용)
+            chat(Chat): 대상 채팅
+            query(str): 사용자 질문
+            requester(User): 요청 사용자
+
+        Returns:
+            ChatTurnResult: 답변 + 인용 목록
+        """
         logger.info(
-            "메시지 처리 시작: chat_id=%s, requester=%s, collection=%s, chat_model=%s",
-            chat_id,
-            requester.email,
+            "메시지 처리 시작: chat_id=%s, requester_id=%s, collection=%s, chat_model=%s",
+            chat.id,
+            requester.id,
             chat.collection_name,
             chat.chat_model,
         )
+        graph = await self._build_graph(chat, requester)
+        usage_handler = UsageMetadataCallbackHandler()
+        run_config = self._run_config(chat.id, requester, usage_handler)
+        before = (await graph.aget_state(run_config)).values.get("messages", [])
 
+        try:
+            async with asyncio.timeout(CHAT_TURN_TIMEOUT_SECONDS):
+                result = await graph.ainvoke(
+                    {"messages": [HumanMessage(content=query)]},
+                    config=run_config,
+                    durability="exit",
+                )
+        except BaseException:
+            # CancelledError(배포 SIGTERM·클라이언트 끊김)도 롤백 대상이다. 롤백 자체가
+            # 다시 취소되지 않도록 shield로 감싸 끝까지 실행한 뒤 원래 예외를 다시 던진다.
+            logger.exception(
+                "메시지 처리 실패: chat_id=%s, requester_id=%s", chat.id, requester.id
+            )
+            await _shielded(self._rollback_thread(graph, run_config, before))
+            raise
+
+        turn_messages = _new_messages(result["messages"], before)
+        answer = _final_answer(turn_messages)
+        citations = _extract_citations(turn_messages)
+        tool_calls = _tool_calls(turn_messages)
+        usage = _sum_usage(usage_handler)
+
+        await self._chats.add_turn_messages(
+            db,
+            chat_id=chat.id,
+            query=query,
+            answer=answer,
+            citations=[asdict(citation) for citation in citations],
+        )
+        await self._log_usage(db, chat, requester, usage, tool_calls)
+        await self._prune_thread(chat.id)
+
+        logger.info(
+            "메시지 처리 완료: chat_id=%s, tools=%s, citation_count=%d, "
+            "input_tokens=%d, output_tokens=%d",
+            chat.id,
+            [call["name"] for call in tool_calls],
+            len(citations),
+            usage.input_tokens,
+            usage.output_tokens,
+        )
+        logger.debug(
+            "에이전트 도구 호출: chat_id=%s, tool_calls=%s", chat.id, tool_calls
+        )
+        return ChatTurnResult(content=answer, citations=citations)
+
+    async def _build_graph(self, chat: Chat, requester: User) -> CompiledStateGraph:
+        """
+        요청별 도구 + 요약 미들웨어 + 체크포인터로 에이전트 그래프 생성
+
+        도구는 요청 세션 대신 세션 팩토리를 받아 호출마다 짧은 세션을 연다.
+
+        Parameters:
+            chat(Chat): 대상 채팅(모델·고정 컬렉션)
+            requester(User): 요청 사용자(사용량 도구 범위)
+
+        Returns:
+            CompiledStateGraph: 실행할 에이전트 그래프
+        """
         tools = [
             await build_retrieval_tool(
-                db,
+                self._session_factory,
                 self._retrieval,
                 self._collection_meta_repository,
                 chat.collection_name,
             ),
             build_calculator_tool(),
-            build_usage_stats_tool(db, self._usage_stats, requester.id),
+            build_usage_stats_tool(
+                self._session_factory, self._usage_stats, requester.id
+            ),
             build_arxiv_search_tool(),
         ]
         web_search_tool = build_web_search_tool()
         if web_search_tool is not None:
             tools.append(web_search_tool)
 
-        model = self._chat_model_registry.resolve(chat.chat_model)
-        graph = create_agent(
-            model=model, tools=tools, system_prompt=AGENT_SYSTEM_PROMPT
+        return create_agent(
+            model=self._chat_model_registry.resolve(chat.chat_model),
+            tools=tools,
+            system_prompt=AGENT_SYSTEM_PROMPT,
+            middleware=[
+                SummarizationMiddleware(
+                    model=self._chat_model_registry.resolve(CHAT_SUMMARY_MODEL),
+                    trigger=("tokens", CHAT_SUMMARY_TRIGGER_TOKENS),
+                    keep=("messages", CHAT_SUMMARY_KEEP_MESSAGES),
+                )
+            ],
+            checkpointer=self._checkpointer,
         )
 
-        run_config = {
-            "callbacks": [self._langfuse_handler] if self._langfuse_handler else [],
+    def _run_config(
+        self,
+        chat_id: str,
+        requester: User,
+        usage_handler: UsageMetadataCallbackHandler,
+    ) -> dict:
+        """
+        에이전트 실행 설정(콜백·재귀 상한·스레드 id·Langfuse 메타)
+
+        Parameters:
+            chat_id(str): 채팅 id(= thread_id)
+            requester(User): 요청 사용자
+            usage_handler(UsageMetadataCallbackHandler): 요약 호출 포함 토큰 집계기
+
+        Returns:
+            dict: RunnableConfig
+        """
+        callbacks = [self._langfuse_handler] if self._langfuse_handler else []
+        return {
+            "callbacks": [*callbacks, usage_handler],
             "recursion_limit": AGENT_RECURSION_LIMIT,
+            "configurable": {"thread_id": chat_id},
             "metadata": {
                 "langfuse_session_id": chat_id,
                 "langfuse_user_id": str(requester.id),
             },
         }
 
+    async def _rollback_thread(
+        self, graph: CompiledStateGraph, run_config: dict, before: list[AnyMessage]
+    ) -> None:
+        """
+        실패한 턴의 메시지를 스레드에서 제거(턴 시작 전 메시지로 복원)
+
+        durability="exit"여도 실패 시 마지막 스텝 상태(답 없는 tool_calls 포함)가
+        저장되므로, 그대로 두면 다음 턴이 provider에서 거부된다(CR-012 F1).
+        복원 실패는 기록만 하고 원래 예외를 우선한다.
+
+        Parameters:
+            graph(CompiledStateGraph): 실행한 에이전트 그래프
+            run_config(dict): 실행 설정(thread_id 포함)
+            before(list[AnyMessage]): 턴 시작 전 스레드 메시지
+        """
         try:
-            result = await graph.ainvoke(
-                {"messages": [{"role": "user", "content": query}]}, config=run_config
+            await graph.aupdate_state(
+                run_config,
+                {"messages": [RemoveMessage(id=REMOVE_ALL_MESSAGES), *before]},
             )
         except Exception:
             logger.exception(
-                "메시지 처리 실패: chat_id=%s, requester=%s",
-                chat_id,
-                requester.email,
+                "스레드 롤백 실패: chat_id=%s", run_config["configurable"]["thread_id"]
             )
-            raise
 
-        messages = result["messages"]
-        answer_content = ""
-        input_tokens = 0
-        output_tokens = 0
-        reasoning_tokens = 0
-        tool_calls: list[dict] = []
-        for message in messages:
-            if not isinstance(message, AIMessage):
-                continue
-            if message.content:
-                answer_content = message.content
-            for call in message.tool_calls:
-                tool_calls.append({"name": call["name"], "args": call["args"]})
-            usage = message.usage_metadata
-            if usage:
-                input_tokens += usage.get("input_tokens", 0) or 0
-                output_tokens += usage.get("output_tokens", 0) or 0
-                reasoning_tokens += (usage.get("output_token_details") or {}).get(
-                    "reasoning", 0
-                ) or 0
+    async def _log_usage(
+        self,
+        db: AsyncSession,
+        chat: Chat,
+        requester: User,
+        usage: TurnUsage,
+        tool_calls: list[dict],
+    ) -> None:
+        """
+        턴 토큰 사용량·도구 호출 이력 기록
 
-        logger.info(
-            "에이전트 도구 호출: chat_id=%s, requester=%s, tool_calls=%s",
-            chat_id,
-            requester.email,
-            tool_calls,
-        )
-
-        citations = _extract_citations(messages)
-
-        await self._chats.add_message(
-            db,
-            chat_id=chat_id,
-            role=ChatMessageRole.ASSISTANT,
-            content=answer_content,
-            citations=[asdict(citation) for citation in citations],
-        )
-
+        Parameters:
+            db(AsyncSession): DB 세션
+            chat(Chat): 대상 채팅
+            requester(User): 요청 사용자
+            usage(TurnUsage): 이번 턴 토큰 합계(요약 호출 포함)
+            tool_calls(list[dict]): 이번 턴 도구 호출(이름+인자)
+        """
         await self._log_repository.create_chat_usage_log(
             db,
             model=chat.chat_model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            reasoning_tokens=reasoning_tokens,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            reasoning_tokens=usage.reasoning_tokens,
             requester_id=requester.id,
             requester_email=requester.email,
             collection_name=chat.collection_name,
             conversation_id=chat.id,
         )
-
         await self._log_repository.create_agent_tool_call_logs(
             db,
             tool_calls=tool_calls,
@@ -249,23 +451,126 @@ class AgentChatOrchestrator:
             requester_email=requester.email,
         )
 
-        logger.info(
-            "메시지 처리 완료: chat_id=%s, citation_count=%d, input_tokens=%d, output_tokens=%d",
-            chat_id,
-            len(citations),
-            input_tokens,
-            output_tokens,
-        )
+    async def _prune_thread(self, chat_id: str) -> None:
+        """
+        성공한 턴 이후 오래된 체크포인트 정리(최신 1개만 유지, best-effort)
 
-        return ChatTurnResult(content=answer_content, citations=citations)
+        Parameters:
+            chat_id(str): 채팅 id(= thread_id)
+        """
+        try:
+            await self._checkpointer.aprune([chat_id], strategy="keep_latest")
+        except Exception:
+            logger.warning("체크포인트 정리 실패: chat_id=%s", chat_id, exc_info=True)
 
 
-def _extract_citations(messages: list) -> list[Citation]:
+async def _shielded(coroutine: Coroutine[Any, Any, None]) -> None:
+    """
+    취소되지 않도록 보호한 채 코루틴을 끝까지 실행
+
+    호출 task가 기다리는 중 다시 취소돼도 내부 작업은 계속 돌고, 완료를 기다린 뒤
+    취소를 전파한다(롤백이 중간에 끊겨 스레드가 반쯤 남는 것을 방지).
+
+    Parameters:
+        coroutine(Coroutine[Any, Any, None]): 보호할 코루틴
+    """
+    task = asyncio.ensure_future(coroutine)
+    try:
+        await asyncio.shield(task)
+    except asyncio.CancelledError:
+        await task
+        raise
+
+
+def _new_messages(
+    messages: list[AnyMessage], before: list[AnyMessage]
+) -> list[AnyMessage]:
+    """
+    실행 후 스레드 메시지 중 이번 턴에 새로 생긴 메시지만 반환
+
+    턴 시작 전 메시지 id로 거른다. 턴 도중 요약으로 이번 질문(HumanMessage)이
+    잘려도 이번 턴의 도구 결과·답변은 남는다(CR-012 F4).
+
+    Parameters:
+        messages(list[AnyMessage]): 실행 후 스레드 메시지
+        before(list[AnyMessage]): 턴 시작 전 스레드 메시지
+
+    Returns:
+        list[AnyMessage]: 이번 턴 메시지
+    """
+    before_ids = {message.id for message in before}
+    return [message for message in messages if message.id not in before_ids]
+
+
+def _final_answer(messages: list[AnyMessage]) -> str:
+    """
+    이번 턴 마지막 AIMessage 본문(최종 답변) 반환
+
+    Parameters:
+        messages(list[AnyMessage]): 이번 턴 메시지
+
+    Returns:
+        str: 최종 답변(없으면 빈 문자열)
+    """
+    answer = ""
+    for message in messages:
+        if isinstance(message, AIMessage) and message.content:
+            answer = message.content
+    return answer
+
+
+def _tool_calls(messages: list[AnyMessage]) -> list[dict]:
+    """
+    이번 턴 도구 호출 목록(이름+인자) 반환
+
+    Parameters:
+        messages(list[AnyMessage]): 이번 턴 메시지
+
+    Returns:
+        list[dict]: [{"name": ..., "args": ...}]
+    """
+    return [
+        {"name": call["name"], "args": call["args"]}
+        for message in messages
+        if isinstance(message, AIMessage)
+        for call in message.tool_calls
+    ]
+
+
+def _sum_usage(usage_handler: UsageMetadataCallbackHandler) -> TurnUsage:
+    """
+    usage 콜백이 모은 모델별 토큰을 턴 합계로 변환(요약 모델 호출 포함)
+
+    ponytail: 요약 모델 토큰도 채팅 모델 행에 합산(모델별 행 분리는 단가 매칭이
+    필요할 때). provider 모델명(날짜 접미사)이 등록명과 달라 분리하지 않는다.
+
+    Parameters:
+        usage_handler(UsageMetadataCallbackHandler): 실행 콜백
+
+    Returns:
+        TurnUsage: 입력/출력/추론 토큰 합계
+    """
+    usage = TurnUsage()
+    for metadata in usage_handler.usage_metadata.values():
+        usage.input_tokens += metadata.get("input_tokens", 0) or 0
+        usage.output_tokens += metadata.get("output_tokens", 0) or 0
+        details = metadata.get("output_token_details") or {}
+        usage.reasoning_tokens += details.get("reasoning", 0) or 0
+    return usage
+
+
+def _extract_citations(messages: list[AnyMessage]) -> list[Citation]:
     """
     도구(ToolMessage)의 JSON 결과를 파싱해 인용 목록으로 변환
 
     문서 검색 도구, 웹 검색 도구, arXiv 검색 도구 결과를 모두 인용으로 취급하며, 같은
     출처(chunk_id 또는 url)가 여러 번 검색돼도 한 번만 남긴다.
+
+    Parameters:
+        messages(list[AnyMessage]): 이번 턴 메시지
+
+    Returns:
+        list[Citation]: 중복 제거된 인용 목록
     """
     seen: dict[str, Citation] = {}
     for message in messages:

@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from models import ChatMessage
+
 
 @dataclass(slots=True)
 class RegisteredChatModel:
@@ -37,3 +39,25 @@ class ChatTurnResult:
 
     content: str
     citations: list[Citation] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class TurnUsage:
+    """
+    한 턴의 토큰 사용량 합계(에이전트 호출 + 요약 호출)
+    """
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    reasoning_tokens: int = 0
+
+
+@dataclass(slots=True)
+class ChatHistory:
+    """
+    채팅 이력: 고정된 채팅 모델·컬렉션 + 메시지 목록(오래된 순)
+    """
+
+    chat_model: str
+    collection_name: str | None
+    messages: list[ChatMessage] = field(default_factory=list)

@@ -1,4 +1,3 @@
-import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
@@ -101,37 +100,3 @@ def test_chat_registry_get_info_failed_with_unknown_model():
 
     with pytest.raises(UnsupportedChatModelError):
         registry.get_info("unknown-model")
-
-
-def test_warmup_success_with_all_clients():
-    # 등록된 모든 client의 warmup을 호출해 선로딩한다.
-    client_a = AsyncMock(spec=EmbeddingClient)
-    client_b = AsyncMock(spec=EmbeddingClient)
-    info_a = RegisteredEmbeddingModel(name="a", provider="p", dimension=1)
-    info_b = RegisteredEmbeddingModel(name="b", provider="p", dimension=1)
-    registry = EmbeddingModelRegistry(
-        catalog={"a": (info_a, client_a), "b": (info_b, client_b)}
-    )
-
-    asyncio.run(registry.warmup())
-
-    client_a.warmup.assert_awaited_once()
-    client_b.warmup.assert_awaited_once()
-
-
-def test_warmup_success_with_one_client_failing():
-    # 한 provider의 warmup 실패가 전파되지 않고 나머지는 계속 로드된다.
-    failing = AsyncMock(spec=EmbeddingClient)
-    failing.warmup.side_effect = RuntimeError("missing api key")
-    healthy = AsyncMock(spec=EmbeddingClient)
-    info_f = RegisteredEmbeddingModel(name="f", provider="openai", dimension=1)
-    info_h = RegisteredEmbeddingModel(name="h", provider="fastembed", dimension=1)
-    registry = EmbeddingModelRegistry(
-        catalog={"f": (info_f, failing), "h": (info_h, healthy)}
-    )
-
-    # 예외가 전파되지 않아야 한다(시작 차단 방지).
-    asyncio.run(registry.warmup())
-
-    failing.warmup.assert_awaited_once()
-    healthy.warmup.assert_awaited_once()

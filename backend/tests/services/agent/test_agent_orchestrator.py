@@ -1,21 +1,50 @@
 import asyncio
 import json
+import logging
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from langchain.agents.middleware import SummarizationMiddleware
+from langchain_core.callbacks import UsageMetadataCallbackHandler
+from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langgraph.checkpoint.memory import InMemorySaver
 
+from core.constants import CHAT_SUMMARY_MODEL
 from exceptions.chat import (
     ChatAccessDeniedError,
     ChatNotFoundError,
+    ChatTurnInProgressError,
     UnsupportedChatModelError,
 )
 from exceptions.document import CollectionMetaNotFoundError
-from models import Chat, User
+from models import Chat, ChatMessage, User
 from services.agent.agent_orchestrator import AgentChatOrchestrator, _extract_citations
 
 
+class _SessionFactory:
+    """호출마다 새 AsyncMock 세션을 내주는 async_sessionmaker 대역."""
+
+    def __call__(self) -> "_SessionFactory":
+        return self
+
+    async def __aenter__(self) -> AsyncMock:
+        return AsyncMock()
+
+    async def __aexit__(self, *exc_info) -> None:
+        return None
+
+
+def _redis(acquired: bool = True) -> AsyncMock:
+    redis_client = AsyncMock()
+    redis_client.set_if_absent.return_value = acquired
+    return redis_client
+
+
 def _make_orchestrator(**overrides):
+    checkpointer = MagicMock()
+    checkpointer.aprune = AsyncMock()
     deps = dict(
         chat_repository=AsyncMock(),
         chat_model_registry=MagicMock(),
@@ -24,6 +53,9 @@ def _make_orchestrator(**overrides):
         usage_stats_service=AsyncMock(),
         log_repository=AsyncMock(),
         langfuse_handler=None,
+        checkpointer=checkpointer,
+        redis_client=_redis(),
+        session_factory=_SessionFactory(),
     )
     deps.update(overrides)
     return AgentChatOrchestrator(**deps), deps
@@ -42,9 +74,38 @@ def _user(user_id: int = 1) -> User:
     return User(id=user_id, google_sub="sub", email="a@b.com")
 
 
-def _fake_graph(messages: list):
+def _usage(input_tokens: int, output_tokens: int, reasoning: int = 0) -> dict:
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+        "output_token_details": {"reasoning": reasoning},
+    }
+
+
+def _fake_graph(
+    messages: list, usage: dict | None = None, before: list | None = None
+) -> MagicMock:
+    """
+    체크포인터 그래프 대역
+
+    ainvoke는 messages를 최종 상태로 돌려주고, 실행 콜백의
+    UsageMetadataCallbackHandler에 모델별 usage(요약 호출 포함)를 채운다.
+    aget_state는 턴 시작 전 스레드 메시지(before)를 돌려준다.
+    """
+
+    async def ainvoke(state, config, **kwargs):
+        for callback in config["callbacks"]:
+            if isinstance(callback, UsageMetadataCallbackHandler):
+                callback.usage_metadata = dict(usage or {})
+        return {"messages": messages}
+
     graph = MagicMock()
-    graph.ainvoke = AsyncMock(return_value={"messages": messages})
+    graph.ainvoke = AsyncMock(side_effect=ainvoke)
+    graph.aget_state = AsyncMock(
+        return_value=SimpleNamespace(values={"messages": list(before or [])})
+    )
+    graph.aupdate_state = AsyncMock()
     return graph
 
 
@@ -52,6 +113,14 @@ def _tool_message(**kwargs) -> ToolMessage:
     defaults = dict(content="{}", name="search_documents", tool_call_id="t1")
     defaults.update(kwargs)
     return ToolMessage(**defaults)
+
+
+def _send(orchestrator, db=None, chat_id: str = "c1", query: str = "질문"):
+    return asyncio.run(
+        orchestrator.send_message(
+            db or AsyncMock(), chat_id=chat_id, query=query, requester=_user()
+        )
+    )
 
 
 def test_create_chat_success():
@@ -125,21 +194,23 @@ def test_create_chat_failed_with_missing_collection_meta():
 
 
 def test_send_message_success_with_call_order():
-    # 검색 도구 결과 → 인용 추출, 여러 AIMessage의 사용량 합산, 메시지 2건 저장,
-    # 사용량 기록 순서로 한 턴을 조립한다.
+    """
+    메시지 전송(성공) - 인용 추출, usage 콜백 합산, 턴 단위 메시지 저장
+
+    입력 데이터
+        - 검색 도구 결과 1건 + 최종 답변 "답변"
+        - usage 콜백: 채팅 모델 7+10 입력, 요약 모델 100 입력(모델별 집계)
+
+    예상 출력 데이터
+        - 답변 "답변", 인용 1건
+        - 사용자+답변 메시지를 add_turn_messages 한 번으로 저장
+        - 사용량 로그에 요약 토큰까지 합산(input 117, output 5+20, reasoning 2)
+    """
     orchestrator, deps = _make_orchestrator()
     deps["chat_repository"].get_chat.return_value = _chat()
-
     messages = [
         HumanMessage(content="질문"),
-        AIMessage(
-            content="",
-            usage_metadata={
-                "input_tokens": 7,
-                "output_tokens": 0,
-                "total_tokens": 7,
-            },
-        ),
+        AIMessage(content=""),
         _tool_message(
             content=json.dumps(
                 {
@@ -155,45 +226,48 @@ def test_send_message_success_with_call_order():
                 }
             )
         ),
-        AIMessage(
-            content="답변",
-            usage_metadata={
-                "input_tokens": 10,
-                "output_tokens": 5,
-                "total_tokens": 15,
-                "output_token_details": {"reasoning": 2},
-            },
-        ),
+        AIMessage(content="답변"),
     ]
+    usage = {
+        "gpt-4o-2024-08-06": _usage(17, 5, reasoning=2),
+        "gpt-4o-mini-2024-07-18": _usage(100, 20),
+    }
 
     with patch(
         "services.agent.agent_orchestrator.create_agent",
-        return_value=_fake_graph(messages),
+        return_value=_fake_graph(messages, usage),
     ):
-        result = asyncio.run(
-            orchestrator.send_message(
-                AsyncMock(), chat_id="c1", query="질문", requester=_user()
-            )
-        )
+        result = _send(orchestrator)
 
     assert result.content == "답변"
     assert len(result.citations) == 1
     assert result.citations[0].chunk_id == "c1"
-    assert result.citations[0].source_type == "document"
-    assert deps["chat_repository"].add_message.await_count == 2
-    deps["log_repository"].create_chat_usage_log.assert_awaited_once()
+    deps["chat_repository"].add_turn_messages.assert_awaited_once()
+    _, kwargs = deps["chat_repository"].add_turn_messages.call_args
+    assert kwargs["chat_id"] == "c1"
+    assert kwargs["query"] == "질문"
+    assert kwargs["answer"] == "답변"
+    assert kwargs["citations"][0]["chunk_id"] == "c1"
     _, kwargs = deps["log_repository"].create_chat_usage_log.call_args
     assert kwargs["conversation_id"] == "c1"
-    assert kwargs["input_tokens"] == 17  # 7 + 10, summed across both AIMessages
-    assert kwargs["output_tokens"] == 5
+    assert kwargs["input_tokens"] == 117
+    assert kwargs["output_tokens"] == 25
     assert kwargs["reasoning_tokens"] == 2
 
 
 def test_send_message_success_with_tool_calls_saved_to_log():
-    # 에이전트가 호출한 도구(이름+인자)를 턴마다 한 번에 로그 테이블로 저장한다.
+    """
+    메시지 전송(성공) - 도구 호출 이력 저장, INFO 로그에는 인자·이메일 미포함
+
+    입력 데이터
+        - search_documents(query="비밀 질의") 호출 1회
+
+    예상 출력 데이터
+        - agent_tool_call_logs에 이름+인자 저장
+        - INFO 로그에 도구 인자와 요청자 이메일이 없음(id만)
+    """
     orchestrator, deps = _make_orchestrator()
     deps["chat_repository"].get_chat.return_value = _chat()
-
     messages = [
         HumanMessage(content="질문"),
         AIMessage(
@@ -201,78 +275,531 @@ def test_send_message_success_with_tool_calls_saved_to_log():
             tool_calls=[
                 {
                     "name": "search_documents",
-                    "args": {"query": "질문", "collection_name": "docs"},
+                    "args": {"query": "비밀 질의", "collection_name": "docs"},
                     "id": "call_1",
                     "type": "tool_call",
                 }
             ],
         ),
-        _tool_message(content=json.dumps({"results": []})),
+        _tool_message(content=json.dumps({"results": []}), tool_call_id="call_1"),
         AIMessage(content="답변"),
     ]
+    logger = logging.getLogger("services.agent.agent_orchestrator")
+    records: list[logging.LogRecord] = []
+    handler = logging.Handler()
+    handler.emit = records.append
+    logger.addHandler(handler)
+    previous_level = logger.level
+    logger.setLevel(logging.INFO)
 
-    with patch(
-        "services.agent.agent_orchestrator.create_agent",
-        return_value=_fake_graph(messages),
-    ):
-        asyncio.run(
-            orchestrator.send_message(
-                AsyncMock(), chat_id="c1", query="질문", requester=_user()
-            )
-        )
+    try:
+        with patch(
+            "services.agent.agent_orchestrator.create_agent",
+            return_value=_fake_graph(messages),
+        ):
+            _send(orchestrator)
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
 
-    deps["log_repository"].create_agent_tool_call_logs.assert_awaited_once()
     _, kwargs = deps["log_repository"].create_agent_tool_call_logs.call_args
-    assert kwargs["conversation_id"] == "c1"
     assert kwargs["tool_calls"] == [
-        {"name": "search_documents", "args": {"query": "질문", "collection_name": "docs"}}
+        {
+            "name": "search_documents",
+            "args": {"query": "비밀 질의", "collection_name": "docs"},
+        }
     ]
+    info_text = " ".join(
+        record.getMessage() for record in records if record.levelno >= logging.INFO
+    )
+    assert "비밀 질의" not in info_text
+    assert "a@b.com" not in info_text
+    assert "search_documents" in info_text
 
 
 def test_send_message_success_with_langfuse_handler_included():
-    # langfuse_handler가 설정되면 콜백 목록에 포함되고, 아니면 빈 목록이다.
+    """
+    메시지 전송(성공) - Langfuse 핸들러와 usage 핸들러가 실행 콜백에 포함
+
+    입력 데이터
+        - langfuse_handler 설정됨
+
+    예상 출력 데이터
+        - callbacks에 langfuse 핸들러 + UsageMetadataCallbackHandler
+        - metadata에 세션/유저 id
+    """
     handler = MagicMock()
     orchestrator, deps = _make_orchestrator(langfuse_handler=handler)
     deps["chat_repository"].get_chat.return_value = _chat()
     graph = _fake_graph([AIMessage(content="답변")])
 
     with patch("services.agent.agent_orchestrator.create_agent", return_value=graph):
-        asyncio.run(
-            orchestrator.send_message(
-                AsyncMock(), chat_id="c1", query="질문", requester=_user()
-            )
-        )
+        _send(orchestrator)
 
-    _, kwargs = graph.ainvoke.call_args
-    assert kwargs["config"]["callbacks"] == [handler]
-    assert kwargs["config"]["metadata"]["langfuse_session_id"] == "c1"
-    assert kwargs["config"]["metadata"]["langfuse_user_id"] == "1"
+    config = graph.ainvoke.call_args.kwargs["config"]
+    assert config["callbacks"][0] is handler
+    assert isinstance(config["callbacks"][1], UsageMetadataCallbackHandler)
+    assert config["metadata"]["langfuse_session_id"] == "c1"
+    assert config["metadata"]["langfuse_user_id"] == "1"
 
 
 def test_send_message_failed_with_missing_chat():
-    # 존재하지 않는 chat_id면 ChatNotFoundError
+    """
+    메시지 전송(실패) - 존재하지 않는 채팅
+
+    입력 데이터
+        - chat_id = "missing"(조회 결과 None)
+
+    예상 출력 데이터
+        - raise ChatNotFoundError(404), 잠금 시도 없음
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = None
+
+    with pytest.raises(ChatNotFoundError) as exc_info:
+        _send(orchestrator, chat_id="missing")
+
+    assert exc_info.value.message == "Chat not found."
+
+    deps["redis_client"].set_if_absent.assert_not_awaited()
+
+
+def test_send_message_failed_with_other_users_chat():
+    """
+    메시지 전송(실패) - 다른 사용자의 채팅(IDOR 방지)
+
+    입력 데이터
+        - 채팅 owner_id = 99, 요청자 id = 1
+
+    예상 출력 데이터
+        - raise ChatAccessDeniedError(403)
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat(owner_id=99)
+
+    with pytest.raises(ChatAccessDeniedError) as exc_info:
+        _send(orchestrator)
+
+    # 클라이언트에 노출되는 메시지에 user id·chat id가 없어야 한다(KI-058).
+    assert exc_info.value.message == "You do not have access to this chat."
+
+
+def test_send_message_failed_with_turn_in_progress():
+    """
+    메시지 전송(실패) - 같은 채팅의 이전 턴이 진행 중(동시 전송)
+
+    입력 데이터
+        - Redis SET NX 실패(이미 잠금 존재)
+
+    예상 출력 데이터
+        - raise ChatTurnInProgressError(409)
+        - 에이전트 실행·메시지 저장 없음, 남의 잠금을 해제하지 않음
+    """
+    orchestrator, deps = _make_orchestrator(redis_client=_redis(acquired=False))
+    deps["chat_repository"].get_chat.return_value = _chat()
+
+    with patch("services.agent.agent_orchestrator.create_agent") as create_agent:
+        with pytest.raises(ChatTurnInProgressError) as exc_info:
+            _send(orchestrator)
+
+    assert "c1" not in exc_info.value.message
+    assert exc_info.value.message.isascii()
+
+    create_agent.assert_not_called()
+    deps["chat_repository"].add_turn_messages.assert_not_awaited()
+    deps["redis_client"].delete.assert_not_awaited()
+
+
+def test_send_message_success_with_lock_acquired_and_released():
+    """
+    메시지 전송(성공) - 채팅별 잠금을 TTL과 함께 잡고 끝나면 해제
+
+    입력 데이터
+        - chat_id = "c1", 정상 턴
+
+    예상 출력 데이터
+        - set_if_absent("chat:turn-lock:c1", ex=TTL>턴 상한) 후 delete 같은 키
+    """
+    from core.constants import CHAT_TURN_LOCK_TTL_SECONDS, CHAT_TURN_TIMEOUT_SECONDS
+
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+
+    with patch(
+        "services.agent.agent_orchestrator.create_agent",
+        return_value=_fake_graph([AIMessage(content="답변")]),
+    ):
+        _send(orchestrator)
+
+    args, kwargs = deps["redis_client"].set_if_absent.call_args
+    assert args[0] == "chat:turn-lock:c1"
+    assert kwargs["ex"] == CHAT_TURN_LOCK_TTL_SECONDS
+    assert CHAT_TURN_LOCK_TTL_SECONDS > CHAT_TURN_TIMEOUT_SECONDS
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+
+
+def test_send_message_failed_with_agent_error_rolls_back_and_releases_lock():
+    """
+    메시지 전송(실패) - 에이전트 실패 시 스레드를 턴 시작 전 메시지로 복원
+
+    입력 데이터
+        - 턴 시작 전 스레드 메시지 [이전 질문]
+        - graph.ainvoke가 RuntimeError
+
+    예상 출력 데이터
+        - RuntimeError 전파
+        - aupdate_state로 RemoveMessage(전체) + 이전 메시지 재기록
+        - chat_messages·사용량 저장 없음, 잠금 해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    previous = HumanMessage(content="이전 질문", id="h0")
+    graph = _fake_graph([], before=[previous])
+    graph.ainvoke = AsyncMock(side_effect=RuntimeError("qdrant down"))
+
+    with patch("services.agent.agent_orchestrator.create_agent", return_value=graph):
+        with pytest.raises(RuntimeError):
+            _send(orchestrator)
+
+    config, update = graph.aupdate_state.call_args.args
+    assert config["configurable"] == {"thread_id": "c1"}
+    remove_all, restored = update["messages"]
+    assert remove_all.type == "remove"
+    assert restored is previous
+    deps["chat_repository"].add_turn_messages.assert_not_awaited()
+    deps["log_repository"].create_chat_usage_log.assert_not_awaited()
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+
+
+def test_send_message_success_with_request_session_released_before_run():
+    """
+    메시지 전송(성공) - 요청 세션 트랜잭션을 에이전트 실행 전에 종료
+
+    입력 데이터
+        - 요청 DB 세션(AsyncMock)
+
+    예상 출력 데이터
+        - db.commit()이 graph.ainvoke보다 먼저 호출(LLM 루프 동안 커넥션 미점유)
+        - 도구 빌더에는 요청 세션이 아닌 세션 팩토리가 전달
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    calls: list[str] = []
+    db = AsyncMock()
+    db.commit.side_effect = lambda: calls.append("commit")
+    graph = _fake_graph([AIMessage(content="답변")])
+    original_ainvoke = graph.ainvoke.side_effect
+
+    async def ainvoke(state, config, **kwargs):
+        calls.append("ainvoke")
+        return await original_ainvoke(state, config, **kwargs)
+
+    graph.ainvoke.side_effect = ainvoke
+
+    with (
+        patch("services.agent.agent_orchestrator.create_agent", return_value=graph),
+        patch(
+            "services.agent.agent_orchestrator.build_retrieval_tool",
+            new=AsyncMock(return_value=MagicMock()),
+        ) as build_retrieval_tool,
+    ):
+        _send(orchestrator, db=db)
+
+    assert calls.index("commit") < calls.index("ainvoke")
+    assert build_retrieval_tool.call_args.args[0] is deps["session_factory"]
+
+
+def test_send_message_success_with_checkpointer_thread_and_summarization():
+    """
+    메시지 전송(성공) - 체크포인터 스레드·요약 미들웨어·durability 설정
+
+    입력 데이터
+        - chat_id = "c1", query = "질문"
+
+    예상 출력 데이터
+        - 현재 질문만 입력, thread_id = chat_id, durability = "exit"
+        - SummarizationMiddleware는 가장 싼 등록 모델(CHAT_SUMMARY_MODEL)로 요약
+        - 성공 후 checkpointer.aprune(["c1"], strategy="keep_latest")
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    summary_model = MagicMock()
+    deps["chat_model_registry"].resolve.side_effect = lambda name: (
+        summary_model if name == CHAT_SUMMARY_MODEL else MagicMock()
+    )
+    graph = _fake_graph([HumanMessage(content="질문"), AIMessage(content="답변")])
+
+    with patch(
+        "services.agent.agent_orchestrator.create_agent", return_value=graph
+    ) as create_agent:
+        _send(orchestrator)
+
+    agent_kwargs = create_agent.call_args.kwargs
+    assert agent_kwargs["checkpointer"] is deps["checkpointer"]
+    (summarizer,) = [
+        m for m in agent_kwargs["middleware"] if isinstance(m, SummarizationMiddleware)
+    ]
+    assert summarizer.model is summary_model
+    (state,) = graph.ainvoke.call_args.args
+    assert state["messages"][0].content == "질문"
+    assert graph.ainvoke.call_args.kwargs["config"]["configurable"] == {
+        "thread_id": "c1"
+    }
+    assert graph.ainvoke.call_args.kwargs["durability"] == "exit"
+    deps["checkpointer"].aprune.assert_awaited_once_with(["c1"], strategy="keep_latest")
+
+
+def test_send_message_success_with_prune_failure_ignored():
+    """
+    메시지 전송(성공) - 체크포인트 정리 실패는 턴 결과에 영향 없음
+
+    입력 데이터
+        - checkpointer.aprune이 NotImplementedError
+
+    예상 출력 데이터
+        - 답변 정상 반환, 메시지 저장 완료
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    deps["checkpointer"].aprune.side_effect = NotImplementedError
+
+    with patch(
+        "services.agent.agent_orchestrator.create_agent",
+        return_value=_fake_graph([AIMessage(content="답변")]),
+    ):
+        result = _send(orchestrator)
+
+    assert result.content == "답변"
+    deps["chat_repository"].add_turn_messages.assert_awaited_once()
+
+
+def test_send_message_success_with_only_current_turn_counted():
+    """
+    메시지 전송(성공) - 이전 턴 메시지는 답변·인용 집계에서 제외
+
+    입력 데이터
+        - 턴 시작 전 스레드: [이전 질문(h0), 이전 답변(a0), 이전 도구 결과(t0)]
+        - 실행 후 스레드: 이전 메시지 + [질문, 답변]
+
+    예상 출력 데이터
+        - 답변 "답변", 인용 없음(이전 도구 결과 제외)
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    before = [
+        HumanMessage(content="이전 질문", id="h0"),
+        AIMessage(content="이전 답변", id="a0"),
+        _tool_message(
+            content=json.dumps({"results": [{"chunk_id": "old", "filename": "a"}]}),
+            tool_call_id="old",
+            id="t0",
+        ),
+    ]
+    messages = [*before, HumanMessage(content="질문"), AIMessage(content="답변")]
+
+    with patch(
+        "services.agent.agent_orchestrator.create_agent",
+        return_value=_fake_graph(messages, before=before),
+    ):
+        result = _send(orchestrator)
+
+    assert result.content == "답변"
+    assert result.citations == []
+
+
+def test_send_message_success_with_turn_messages_kept_after_mid_turn_summary():
+    """
+    메시지 전송(성공) - 턴 도중 요약으로 이번 질문이 잘려도 이번 턴 결과 집계
+
+    입력 데이터
+        - 턴 시작 전 스레드: [이전 질문(h0), 이전 답변(a0)]
+        - 실행 후 스레드: [요약(HumanMessage, 새 id), 도구 결과, 답변](이번 질문 소실)
+
+    예상 출력 데이터
+        - 답변 "답변", 이번 턴 도구 결과의 인용 1건 유지
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    before = [
+        HumanMessage(content="이전 질문", id="h0"),
+        AIMessage(content="이전 답변", id="a0"),
+    ]
+    messages = [
+        HumanMessage(content="요약: ...", id="summary"),
+        _tool_message(
+            content=json.dumps({"results": [{"chunk_id": "new", "filename": "b"}]}),
+            id="t1",
+        ),
+        AIMessage(content="답변", id="a1"),
+    ]
+
+    with patch(
+        "services.agent.agent_orchestrator.create_agent",
+        return_value=_fake_graph(messages, before=before),
+    ):
+        result = _send(orchestrator)
+
+    assert result.content == "답변"
+    assert [c.chunk_id for c in result.citations] == ["new"]
+
+
+class _ToolCallingFakeModel(GenericFakeChatModel):
+    """bind_tools를 지원하는 스크립트형 가짜 채팅 모델(create_agent용)."""
+
+    def bind_tools(self, tools, **kwargs):
+        return self
+
+
+def test_send_message_failed_with_tool_error_leaves_no_dangling_tool_calls():
+    """
+    메시지 전송(실패→복구) - 실제 InMemorySaver 그래프로 실패 턴 원자성 검증(CR-012 F1)
+
+    입력 데이터
+        - 1턴: 정상 답변 "첫 답변"
+        - 2턴: 모델이 search_documents tool_call → 검색이 RuntimeError
+        - 3턴: 정상 답변 "셋째 답변"
+
+    예상 출력 데이터
+        - 2턴 RuntimeError, 스레드는 1턴 메시지 그대로(답 없는 tool_calls 없음)
+        - 3턴 성공, 스레드 = [1턴 질문, 첫 답변, 3턴 질문, 셋째 답변]
+        - chat_messages 저장은 성공한 1·3턴만
+    """
+    checkpointer = InMemorySaver()
+    retrieval_service = AsyncMock()
+    retrieval_service.retrieve.side_effect = RuntimeError("qdrant down")
+    model = _ToolCallingFakeModel(
+        messages=iter(
+            [
+                AIMessage(content="첫 답변"),
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "search_documents",
+                            "args": {"query": "q"},
+                            "id": "call_1",
+                            "type": "tool_call",
+                        }
+                    ],
+                ),
+                AIMessage(content="셋째 답변"),
+            ]
+        )
+    )
+    registry = MagicMock()
+    registry.resolve.return_value = model
+    orchestrator, deps = _make_orchestrator(
+        checkpointer=checkpointer,
+        chat_model_registry=registry,
+        retrieval_service=retrieval_service,
+    )
+    deps["chat_repository"].get_chat.return_value = _chat()
+
+    async def thread_messages() -> list:
+        state = await checkpointer.aget_tuple({"configurable": {"thread_id": "c1"}})
+        return state.checkpoint["channel_values"]["messages"]
+
+    async def scenario() -> list:
+        await orchestrator.send_message(
+            AsyncMock(), chat_id="c1", query="첫 질문", requester=_user()
+        )
+        with pytest.raises(RuntimeError):
+            await orchestrator.send_message(
+                AsyncMock(), chat_id="c1", query="둘째 질문", requester=_user()
+            )
+        after_failure = await thread_messages()
+        assert [m.content for m in after_failure] == ["첫 질문", "첫 답변"]
+        await orchestrator.send_message(
+            AsyncMock(), chat_id="c1", query="셋째 질문", requester=_user()
+        )
+        return await thread_messages()
+
+    with patch(
+        "services.agent.agent_orchestrator.build_web_search_tool", return_value=None
+    ):
+        final_messages = asyncio.run(scenario())
+
+    assert [m.content for m in final_messages] == [
+        "첫 질문",
+        "첫 답변",
+        "셋째 질문",
+        "셋째 답변",
+    ]
+    assert not any(getattr(m, "tool_calls", None) for m in final_messages)
+    saved_answers = [
+        call.kwargs["answer"]
+        for call in deps["chat_repository"].add_turn_messages.await_args_list
+    ]
+    assert saved_answers == ["첫 답변", "셋째 답변"]
+
+
+def test_get_messages_success_with_owner():
+    """
+    채팅 이력 조회(성공) - 소유자
+
+    입력 데이터
+        - chat_id = "c1", 요청자 = 소유자, 저장된 메시지 2건
+
+    예상 출력 데이터
+        - chat_model/collection_name + 메시지 2건(저장소 정렬 순서 그대로)
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    rows = [
+        ChatMessage(chat_id="c1", role="user", content="질문", citations=None),
+        ChatMessage(chat_id="c1", role="assistant", content="답변", citations=[]),
+    ]
+    deps["chat_repository"].list_messages.return_value = rows
+
+    history = asyncio.run(
+        orchestrator.get_messages(AsyncMock(), chat_id="c1", requester=_user())
+    )
+
+    assert history.chat_model == "gpt-4o-mini"
+    assert history.collection_name == "docs"
+    assert history.messages == rows
+
+
+def test_get_messages_failed_with_missing_chat():
+    """
+    채팅 이력 조회(실패) - 존재하지 않는 채팅
+
+    입력 데이터
+        - chat_id = "missing"
+
+    예상 출력 데이터
+        - raise ChatNotFoundError(404), 메시지 조회 없음
+    """
     orchestrator, deps = _make_orchestrator()
     deps["chat_repository"].get_chat.return_value = None
 
     with pytest.raises(ChatNotFoundError):
         asyncio.run(
-            orchestrator.send_message(
-                AsyncMock(), chat_id="missing", query="질문", requester=_user()
-            )
+            orchestrator.get_messages(AsyncMock(), chat_id="missing", requester=_user())
         )
 
+    deps["chat_repository"].list_messages.assert_not_awaited()
 
-def test_send_message_failed_with_other_users_chat():
-    # IDOR 방지: 채팅 소유자가 아니면 접근 거부
+
+def test_get_messages_failed_with_other_users_chat():
+    """
+    채팅 이력 조회(실패) - 다른 사용자의 채팅
+
+    입력 데이터
+        - 채팅 owner_id = 99, 요청자 id = 1
+
+    예상 출력 데이터
+        - raise ChatAccessDeniedError(403), 메시지 조회 없음
+    """
     orchestrator, deps = _make_orchestrator()
     deps["chat_repository"].get_chat.return_value = _chat(owner_id=99)
 
     with pytest.raises(ChatAccessDeniedError):
         asyncio.run(
-            orchestrator.send_message(
-                AsyncMock(), chat_id="c1", query="질문", requester=_user(user_id=1)
-            )
+            orchestrator.get_messages(AsyncMock(), chat_id="c1", requester=_user())
         )
+
+    deps["chat_repository"].list_messages.assert_not_awaited()
 
 
 def test_extract_citations_success_with_document_and_web_sources():
@@ -343,3 +870,75 @@ def test_extract_citations_success_with_document_and_web_sources():
     assert web_citation.title == "뉴스 제목"
     assert arxiv_citation.source_type == "web"
     assert arxiv_citation.title == "A Great Paper"
+
+
+def test_send_message_failed_with_cancel_mid_tool_call_rolls_back():
+    """
+    메시지 전송(실패) - 도구 실행 중 취소(배포 SIGTERM, 클라이언트 끊김) 시에도 롤백(CR-014 F1)
+
+    입력 데이터
+        - 실제 InMemorySaver 그래프, 모델이 search_documents tool_call
+        - 검색 도구 실행 중 요청 task를 cancel
+
+    예상 출력 데이터
+        - CancelledError 전파
+        - 스레드에 답 없는 tool_calls가 남지 않음(턴 시작 전 상태 = 빈 스레드)
+        - Redis 잠금 해제, chat_messages 저장 없음
+    """
+    checkpointer = InMemorySaver()
+    tool_started = asyncio.Event()
+
+    async def hang(*args, **kwargs):
+        tool_started.set()
+        await asyncio.Event().wait()
+
+    retrieval_service = AsyncMock()
+    retrieval_service.retrieve.side_effect = hang
+    model = _ToolCallingFakeModel(
+        messages=iter(
+            [
+                AIMessage(
+                    content="",
+                    tool_calls=[
+                        {
+                            "name": "search_documents",
+                            "args": {"query": "q"},
+                            "id": "call_1",
+                            "type": "tool_call",
+                        }
+                    ],
+                )
+            ]
+        )
+    )
+    registry = MagicMock()
+    registry.resolve.return_value = model
+    orchestrator, deps = _make_orchestrator(
+        checkpointer=checkpointer,
+        chat_model_registry=registry,
+        retrieval_service=retrieval_service,
+    )
+    deps["chat_repository"].get_chat.return_value = _chat()
+
+    async def scenario() -> list:
+        task = asyncio.create_task(
+            orchestrator.send_message(
+                AsyncMock(), chat_id="c1", query="질문", requester=_user()
+            )
+        )
+        await tool_started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        state = await checkpointer.aget_tuple({"configurable": {"thread_id": "c1"}})
+        return state.checkpoint["channel_values"].get("messages", []) if state else []
+
+    with patch(
+        "services.agent.agent_orchestrator.build_web_search_tool", return_value=None
+    ):
+        messages = asyncio.run(scenario())
+
+    assert not any(getattr(m, "tool_calls", None) for m in messages)
+    assert messages == []
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+    deps["chat_repository"].add_turn_messages.assert_not_awaited()

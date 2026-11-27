@@ -6,7 +6,13 @@ from clients.embedding import (
 )
 from core.model_config.chat_model_config import chat_model_catalog
 from core.model_config.embedding_model_config import embedding_model_catalog
-from dependencies.clients import get_kafka_producer, get_langfuse_handler
+from dependencies.clients import (
+    get_checkpointer,
+    get_kafka_producer,
+    get_langfuse_handler,
+    get_redis_client,
+)
+from dependencies.db import AsyncSessionLocal
 from dependencies.repositories import (
     get_auth_repository,
     get_chat_repository,
@@ -91,6 +97,9 @@ def get_chat_orchestrator() -> AgentChatOrchestrator:
         usage_stats_service=get_usage_stats_service(),
         log_repository=get_log_repository(),
         langfuse_handler=get_langfuse_handler(),
+        checkpointer=get_checkpointer(),
+        redis_client=get_redis_client(),
+        session_factory=AsyncSessionLocal,
     )
 
 

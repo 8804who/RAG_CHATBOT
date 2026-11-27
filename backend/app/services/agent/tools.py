@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 
 from langchain_core.tools import BaseTool, tool
 from simpleeval import simple_eval
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from core.config import config
 from repositories import CollectionMetadataRepository
@@ -41,7 +41,7 @@ def _chunks_to_json(chunks, collection_name: str) -> str:
 
 
 async def build_retrieval_tool(
-    db: AsyncSession,
+    session_factory: async_sessionmaker[AsyncSession],
     retrieval_service: RetrievalService,
     collection_meta_repository: CollectionMetadataRepository,
     allowed_collection: str | None,
@@ -54,8 +54,12 @@ async def build_retrieval_tool(
     대상을 고르는 경우) 인제스트된 모든 컬렉션의 이름+설명을 도구 설명에
     나열하고, 모델이 collection_name을 골라 넘기는 도구를 만든다.
 
+    도구 호출마다 짧은 세션을 새로 연다. 요청 세션을 캡처하면 LLM 루프 내내
+    idle-in-transaction으로 커넥션을 붙잡고, ToolNode의 병렬 도구 호출이 한
+    AsyncSession을 동시에 쓰게 된다(AsyncSession은 동시 사용 불가).
+
     Parameters:
-        db(AsyncSession): DB 세션(요청 범위, 클로저로 캡처)
+        session_factory(async_sessionmaker[AsyncSession]): 호출별 DB 세션 생성기
         retrieval_service(RetrievalService): 하이브리드 검색 서비스(재사용)
         collection_meta_repository(CollectionMetadataRepository): 컬렉션 메타 조회용
         allowed_collection(str | None): 고정된 컬렉션 이름 또는 None
@@ -68,12 +72,14 @@ async def build_retrieval_tool(
         @tool(RETRIEVAL_TOOL_NAME)
         async def search_documents_pinned(query: str) -> str:
             """지식베이스에서 질의와 관련된 문서를 검색한다."""
-            chunks = await retrieval_service.retrieve(db, allowed_collection, query)
+            async with session_factory() as db:
+                chunks = await retrieval_service.retrieve(db, allowed_collection, query)
             return _chunks_to_json(chunks, allowed_collection)
 
         return search_documents_pinned
 
-    metas = await collection_meta_repository.list_all(db)
+    async with session_factory() as db:
+        metas = await collection_meta_repository.list_all(db)
     if metas:
         catalog_lines = "\n".join(
             f"- {meta.collection_name}: {meta.description or '(설명 없음)'}"
@@ -89,7 +95,8 @@ async def build_retrieval_tool(
 
     @tool(RETRIEVAL_TOOL_NAME, description=description)
     async def search_documents_routed(collection_name: str, query: str) -> str:
-        chunks = await retrieval_service.retrieve(db, collection_name, query)
+        async with session_factory() as db:
+            chunks = await retrieval_service.retrieve(db, collection_name, query)
         return _chunks_to_json(chunks, collection_name)
 
     return search_documents_routed
@@ -119,7 +126,9 @@ def build_calculator_tool() -> BaseTool:
 
 
 def build_usage_stats_tool(
-    db: AsyncSession, usage_stats_service: UsageStatsService, requester_id: int
+    session_factory: async_sessionmaker[AsyncSession],
+    usage_stats_service: UsageStatsService,
+    requester_id: int,
 ) -> BaseTool:
     """
     사용량 통계 도구 생성
@@ -128,7 +137,7 @@ def build_usage_stats_tool(
     없음 — 임의 SQL/타 사용자 데이터 접근 경로를 원천 차단).
 
     Parameters:
-        db(AsyncSession): DB 세션(요청 범위, 클로저로 캡처)
+        session_factory(async_sessionmaker[AsyncSession]): 호출별 DB 세션 생성기
         usage_stats_service(UsageStatsService): 기존 마이페이지 집계 서비스 재사용
         requester_id(int): 호출한 사용자 id(고정, 모델이 바꿀 수 없음)
 
@@ -139,7 +148,8 @@ def build_usage_stats_tool(
     @tool
     async def get_my_usage_stats() -> str:
         """호출한 사용자 본인의 누적 토큰 사용량·비용 통계를 조회한다. 인자가 필요 없다."""
-        stats = await usage_stats_service.get_user_stats(db, requester_id)
+        async with session_factory() as db:
+            stats = await usage_stats_service.get_user_stats(db, requester_id)
         return json.dumps(
             {
                 "chat": [

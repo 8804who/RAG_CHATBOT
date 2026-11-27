@@ -1,5 +1,5 @@
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +13,7 @@ from core.constants import METRICS_PATH
 from core.logging_config import configure_logging
 from core.model_config.pricing_config import default_pricing_rows
 from dependencies.clients import (
+    get_checkpointer,
     get_kafka_producer,
     get_langfuse_handler,
     get_qdrant_client,
@@ -40,19 +41,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 모델 단가 기본값 시딩(멱등). 마이페이지 비용 계산 기준값.
     async with AsyncSessionLocal() as session:
         await get_pricing_repository().upsert_defaults(session, default_pricing_rows)
-    get_qdrant_client()
-    get_redis_client()
-    get_embedding_registry()
-    get_chat_model_registry()
-    get_sparse_encoder()
-    get_langfuse_handler()  # None이면 추적 비활성(키 미설정)
-    # 인제스트 파이프라인: 토픽 보장 + 프로듀서 시작(API는 발행만, 소비는 워커).
-    await ensure_topics(ALL_TOPICS)
-    await get_kafka_producer().start()
-    yield
-    await get_qdrant_client().close()
-    await get_redis_client().close()
-    await get_kafka_producer().close()
+    # 연 자원마다 정리 콜백을 등록한다. 이후 기동 단계나 다른 close가 실패해도
+    # 이미 연 자원은 모두 닫힌다(역순 실행, 예외는 체이닝 후 전파).
+    async with AsyncExitStack() as resources:
+        resources.push_async_callback(get_kafka_producer().close)
+        resources.push_async_callback(get_redis_client().close)
+        resources.push_async_callback(get_qdrant_client().close)
+        get_embedding_registry()
+        get_chat_model_registry()
+        get_sparse_encoder()
+        get_langfuse_handler()  # None이면 추적 비활성(키 미설정)
+        # 인제스트 파이프라인: 토픽 보장 + 프로듀서 시작(API는 발행만, 소비는 워커).
+        await ensure_topics(ALL_TOPICS)
+        await get_kafka_producer().start()
+        # 멀티턴 대화 이력 저장소: 풀 오픈 + 체크포인트 테이블 생성(멱등, Alembic 관리 밖).
+        checkpointer = get_checkpointer()
+        await checkpointer.conn.open()
+        resources.push_async_callback(checkpointer.conn.close)
+        await checkpointer.setup()
+        yield
 
 
 app = FastAPI(title="RAG Chatbot API", lifespan=lifespan)

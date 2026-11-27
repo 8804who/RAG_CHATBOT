@@ -29,6 +29,17 @@ target_metadata = Base.metadata
 # ... etc.
 
 
+# LangGraph 체크포인터가 setup()으로 직접 만드는 테이블. Alembic 관리 대상이 아니므로
+# autogenerate가 drop_table을 생성하지 않도록 제외한다.
+_CHECKPOINT_TABLES = frozenset(
+    {"checkpoints", "checkpoint_writes", "checkpoint_blobs", "checkpoint_migrations"}
+)
+
+
+def _include_object(obj, name, type_, reflected, compare_to) -> bool:
+    return not (type_ == "table" and name in _CHECKPOINT_TABLES)
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -53,7 +64,11 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        include_object=_include_object,
+    )
 
     with context.begin_transaction():
         context.run_migrations()

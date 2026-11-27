@@ -6,7 +6,13 @@ from dependencies.db import get_db_session
 from dependencies.services import get_chat_orchestrator
 from models import User
 from schemes.requests import CreateChatRequest, SendChatMessageRequest
-from schemes.responses import ChatMessageResponse, ChatResponse, CitationResponse
+from schemes.responses import (
+    ChatHistoryMessageResponse,
+    ChatHistoryResponse,
+    ChatMessageResponse,
+    ChatResponse,
+    CitationResponse,
+)
 from services.agent import AgentChatOrchestrator
 
 router = APIRouter(prefix="/chats", tags=["chat"])
@@ -50,7 +56,64 @@ async def create_chat(
     return ChatResponse.model_validate(chat)
 
 
-@router.post("/{chat_id}/messages", response_model=ChatMessageResponse)
+@router.get(
+    "/{chat_id}/messages",
+    status_code=status.HTTP_200_OK,
+    response_model=ChatHistoryResponse,
+)
+async def get_messages(
+    chat_id: str = Path(..., min_length=1),
+    chat_orchestrator: AgentChatOrchestrator = Depends(get_chat_orchestrator),
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> ChatHistoryResponse:
+    """
+    ### 채팅 이력 조회
+
+    채팅 소유자만 조회할 수 있다. 성공한 턴의 질문·답변만 저장되므로 실패한
+    턴은 이력에 없다.
+
+    Path Variables:
+        chat_id(str): 대상 채팅 id
+
+    Response Body:
+        chat_model: 고정된 생성 모델
+        collection_name: 고정된 컬렉션(없으면 null)
+        messages: 메시지 목록(오래된 순)
+            role: "user" 또는 "assistant"
+            content: 본문
+            citations: 답변 근거 목록(사용자 메시지는 빈 목록)
+            created_at: 저장 시각
+
+    Error Response:
+        채팅이 존재하지 않을 경우: (404 Not Found)
+        다른 사용자의 채팅일 경우: (403 Forbidden)
+    """
+    history = await chat_orchestrator.get_messages(
+        db, chat_id=chat_id, requester=current_user
+    )
+    return ChatHistoryResponse(
+        chat_model=history.chat_model,
+        collection_name=history.collection_name,
+        messages=[
+            ChatHistoryMessageResponse(
+                role=message.role,
+                content=message.content,
+                citations=[
+                    CitationResponse(**citation) for citation in message.citations or []
+                ],
+                created_at=message.created_at,
+            )
+            for message in history.messages
+        ],
+    )
+
+
+@router.post(
+    "/{chat_id}/messages",
+    status_code=status.HTTP_200_OK,
+    response_model=ChatMessageResponse,
+)
 async def send_message(
     body: SendChatMessageRequest,
     chat_id: str = Path(..., min_length=1),
@@ -64,7 +127,8 @@ async def send_message(
     질의를 에이전트에 넘긴다. 에이전트는 필요한 도구(문서 검색/계산기/웹
     검색/사용량 조회)를 스스로 선택해 여러 번 호출할 수 있고(멀티스텝),
     문서 검색은 컬렉션이 고정되지 않은 채팅이면 대상 컬렉션도 직접 고른다.
-    결과를 메시지로 영속화하고 토큰 사용량을 기록한다(비스트리밍).
+    결과를 메시지로 영속화하고 토큰 사용량을 기록한다(비스트리밍). 한 턴은
+    전부 아니면 전무라, 실패하면 질문도 저장되지 않으므로 그대로 재전송하면 된다.
 
     Path Variables:
         chat_id(str): 대상 채팅 id
@@ -82,6 +146,7 @@ async def send_message(
     Error Response:
         채팅이 존재하지 않을 경우: (404 Not Found)
         다른 사용자의 채팅일 경우: (403 Forbidden)
+        같은 채팅의 이전 메시지를 처리 중일 경우: (409 Conflict)
     """
     result = await chat_orchestrator.send_message(
         db, chat_id=chat_id, query=body.query, requester=current_user
