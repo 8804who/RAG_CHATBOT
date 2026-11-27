@@ -3,14 +3,14 @@ import { Navigate, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/AuthContext'
 
-export default function LoginPage() {
+export function LoginPage(): React.JSX.Element {
   const { user, login } = useAuth()
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
 
   if (user) return <Navigate to="/chat" replace />
 
-  async function handleLogin() {
+  async function handleLogin(): Promise<void> {
     setBusy(true)
     try {
       await login()
@@ -47,7 +47,7 @@ export default function LoginPage() {
   )
 }
 
-function GoogleIcon() {
+function GoogleIcon(): React.JSX.Element {
   return (
     <svg className="size-5" viewBox="0 0 24 24" aria-hidden>
       <path

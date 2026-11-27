@@ -24,3 +24,16 @@ export function formatSecondsRemaining(seconds: number): string {
   const minutes = Math.round(seconds / 60)
   return `~${minutes}m left`
 }
+
+/** Returns the URL only if it is an absolute http(s) URL, so it is safe as an href. */
+export function safeHttpUrl(url: string | null | undefined): string | undefined {
+  if (!url) return undefined
+  try {
+    const parsed = new URL(url)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+      ? parsed.href
+      : undefined
+  } catch {
+    return undefined
+  }
+}

@@ -127,7 +127,7 @@ function UsageCard({
   )
 }
 
-export default function MyPage(): React.JSX.Element {
+export function MyPage(): React.JSX.Element {
   const { user } = useAuth()
   const { data, isLoading, isError } = useUsageStats()
 

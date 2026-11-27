@@ -1,8 +1,11 @@
+import { useDocumentStatus, type UploadItem } from '../../hooks/useDocuments'
+import { ApiError } from '../../lib/api/client'
 import { formatSecondsRemaining } from '../../lib/format'
-import type { DocumentIngestStatus, DocumentStatusResponse } from '../../lib/types'
+import type { DocumentIngestStatus } from '../../lib/types'
 
 interface IngestProgressProps {
-  status: DocumentStatusResponse
+  collection: string
+  upload: UploadItem
 }
 
 const STATUS_LABELS: Record<DocumentIngestStatus, string> = {
@@ -40,45 +43,97 @@ const WIDTH_CLASSES = [
   'w-[100%]',
 ]
 
-function widthClassFor(percent: number): string {
-  const step = Math.max(0, Math.min(100, Math.round(percent / 5) * 5))
-  return WIDTH_CLASSES[step / 5]
+function clampPercent(percent: number): number {
+  return Math.max(0, Math.min(100, Math.round(percent)))
 }
 
-export default function IngestProgress({ status }: IngestProgressProps) {
-  const isFailed = status.status === 'FAILED'
+function widthClassFor(percent: number): string {
+  return WIDTH_CLASSES[Math.round(clampPercent(percent) / 5)]
+}
+
+function uploadErrorMessage(error: Error): string {
+  if (error instanceof ApiError) {
+    if (error.status === 400)
+      return 'This collection has no pinned embedding model, or the document was empty.'
+    if (error.status === 404) return 'Collection not found. Pick another collection.'
+  }
+  return `Upload failed (${error.message}). Try again.`
+}
+
+export function IngestProgress({
+  collection,
+  upload,
+}: IngestProgressProps): React.JSX.Element {
+  const {
+    data: status,
+    isError: pollFailed,
+    isFetching: pollRetrying,
+    refetch,
+  } = useDocumentStatus(
+    collection,
+    upload.documentId,
+  )
+
+  const failed = upload.error !== null || pollFailed || status?.status === 'FAILED'
+  const label = upload.error
+    ? uploadErrorMessage(upload.error)
+    : pollFailed
+      ? 'Could not check progress. Retry, or check the document list below.'
+      : status
+        ? STATUS_LABELS[status.status]
+        : 'Uploading…'
+  const percent = status ? clampPercent(status.progress_percent) : 0
 
   return (
-    <div
+    <li
+      role="status"
       className={`rounded-lg px-3 py-2 text-sm ${
-        isFailed ? 'bg-negative/10 text-negative' : 'bg-surface-2 text-fg'
+        failed ? 'bg-negative/10 text-negative' : 'bg-surface-2 text-fg'
       }`}
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="truncate">
-          {status.filename}: {STATUS_LABELS[status.status]}
-          {status.total_chunks !== null &&
-            !isFailed &&
+        <span className="min-w-0 truncate">
+          {upload.filename}: {label}
+          {status?.total_chunks != null &&
+            !failed &&
             ` (${status.indexed_chunks}/${status.total_chunks} chunks)`}
         </span>
-        {status.estimated_seconds_remaining !== null && (
+        {!failed && status?.estimated_seconds_remaining != null && (
           <span className="shrink-0 text-xs text-muted">
             {formatSecondsRemaining(status.estimated_seconds_remaining)}
           </span>
         )}
       </div>
 
-      {!isFailed && (
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-4">
+      {!failed && status?.status !== 'INDEXED' && (
+        <div
+          role="progressbar"
+          aria-label={`${upload.filename} ingest progress`}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percent}
+          className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-4"
+        >
           <div
-            className={`h-full rounded-full bg-primary transition-[width] ${widthClassFor(
-              status.progress_percent,
-            )}`}
+            className={`h-full rounded-full bg-primary transition-[width] ${widthClassFor(percent)}`}
           />
         </div>
       )}
 
-      {isFailed && status.error && <p className="mt-1 text-xs">{status.error}</p>}
-    </div>
+      {pollFailed && (
+        <button
+          type="button"
+          onClick={() => void refetch()}
+          disabled={pollRetrying}
+          className="btn-secondary mt-2"
+        >
+          {pollRetrying ? 'Retrying…' : 'Retry'}
+        </button>
+      )}
+
+      {status?.status === 'FAILED' && status.error && (
+        <p className="mt-1 text-xs">{status.error}</p>
+      )}
+    </li>
   )
 }

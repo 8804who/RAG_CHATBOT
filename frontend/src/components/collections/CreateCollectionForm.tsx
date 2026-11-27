@@ -18,11 +18,11 @@ const SPARSE_MODIFIERS: SparseModifier[] = ['idf', 'none']
 
 const labelClass = 'mb-1 block text-sm font-bold'
 
-export default function CreateCollectionForm({
+export function CreateCollectionForm({
   onSubmit,
   busy,
   error,
-}: CreateCollectionFormProps) {
+}: CreateCollectionFormProps): React.JSX.Element {
   const { data: models, isLoading: modelsLoading } = useEmbeddingModels()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -44,7 +44,7 @@ export default function CreateCollectionForm({
   const trimmedName = name.trim()
   const canSubmit = trimmedName.length > 0 && !!selectedModel && !busy
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>): void {
     e.preventDefault()
     if (!canSubmit || !selectedModel) return
 

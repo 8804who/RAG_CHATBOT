@@ -42,21 +42,22 @@
   --tracking-button: 1.4px;
 }
 
-/* Shared control styles (used in 2+ components). */
+/* Shared control styles (used in 2+ components). Buttons keep a 44px
+   minimum touch target (min-h-11). */
 @utility btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold tracking-button text-black uppercase transition hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary;
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-bold tracking-button text-black uppercase transition hover:bg-primary-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-primary;
 }
 
 @utility btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-full border border-line-strong px-4 py-1.5 text-sm font-bold text-fg transition hover:border-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line-strong;
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-line-strong px-4 py-1.5 text-sm font-bold text-fg transition hover:border-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-line-strong;
 }
 
 @utility btn-ghost {
-  @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm text-muted transition hover:bg-surface-3 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex min-h-11 items-center gap-2 rounded-full px-3 py-1.5 text-sm text-muted transition hover:bg-surface-3 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 @utility btn-danger {
-  @apply inline-flex items-center justify-center gap-2 rounded-full border border-negative px-4 py-1.5 text-sm font-bold text-negative transition hover:bg-negative/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50;
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-negative px-4 py-1.5 text-sm font-bold text-negative transition hover:bg-negative/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:cursor-not-allowed disabled:opacity-50;
 }
 
 /* Single-line inputs and selects are pills; textareas get rounded-lg. */

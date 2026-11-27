@@ -1,15 +1,18 @@
 import { useRef, useState, type DragEvent } from 'react'
 
+import { MAX_UPLOAD_BYTES, UPLOAD_EXTENSIONS } from '../../lib/config'
+import { formatBytes } from '../../lib/format'
+
 interface UploadZoneProps {
   onUpload: (files: File[]) => void
   busy?: boolean
 }
 
-export default function UploadZone({ onUpload, busy }: UploadZoneProps) {
+export function UploadZone({ onUpload, busy }: UploadZoneProps): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = useState(false)
 
-  function handleDrop(e: DragEvent<HTMLDivElement>) {
+  function handleDrop(e: DragEvent<HTMLDivElement>): void {
     e.preventDefault()
     setDragging(false)
     const files = Array.from(e.dataTransfer.files)
@@ -30,11 +33,14 @@ export default function UploadZone({ onUpload, busy }: UploadZoneProps) {
           : 'border-line-strong bg-surface hover:border-muted'
       }`}
     >
-      <span className="mb-2 text-3xl">📥</span>
-      <p className="text-sm font-bold">
-        Drag &amp; drop documents here
+      <span className="mb-2 text-3xl" aria-hidden>
+        📥
+      </span>
+      <p className="text-sm font-bold">Drag &amp; drop documents here</p>
+      <p className="mt-0.5 text-xs text-muted">
+        Markdown or plain text ({UPLOAD_EXTENSIONS.join(', ')}), up to{' '}
+        {formatBytes(MAX_UPLOAD_BYTES)} each
       </p>
-      <p className="mt-0.5 text-xs text-muted">PDF, Markdown, Word, or text</p>
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
@@ -48,7 +54,7 @@ export default function UploadZone({ onUpload, busy }: UploadZoneProps) {
         type="file"
         multiple
         className="hidden"
-        accept=".pdf,.md,.markdown,.txt,.doc,.docx"
+        accept={UPLOAD_EXTENSIONS.join(',')}
         onChange={(e) => {
           const files = Array.from(e.target.files ?? [])
           if (files.length) onUpload(files)

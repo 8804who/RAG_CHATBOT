@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 
 import {
   useCollection,
@@ -7,6 +8,7 @@ import {
 } from '../../hooks/useCollections'
 import { ApiError } from '../../lib/api/client'
 import type { QdrantCollection, UpdateCollectionRequest } from '../../lib/types'
+import { InlineConfirm } from '../InlineConfirm'
 import { EditCollectionForm } from './EditCollectionForm'
 
 interface CollectionListItemProps {
@@ -17,7 +19,7 @@ function mutationErrorMessage(error: unknown, action: string): string | null {
   if (!error) return null
   if (error instanceof ApiError) {
     if (error.status === 404) return 'This collection no longer exists.'
-    return `Could not ${action} collection (error ${error.status}).`
+    return `Could not ${action} collection (${error.message}).`
   }
   return `Could not ${action} collection.`
 }
@@ -27,6 +29,7 @@ export function CollectionListItem({
 }: CollectionListItemProps): React.JSX.Element {
   const [editing, setEditing] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const deleteButtonRef = useRef<HTMLButtonElement>(null)
 
   const detail = useCollection(editing ? collection.name : null)
   const update = useUpdateCollection()
@@ -56,25 +59,15 @@ export function CollectionListItem({
         </span>
 
         {confirmingDelete ? (
-          <span className="flex items-center gap-2 text-sm">
-            <span className="text-muted">Delete?</span>
-            <button
-              type="button"
-              onClick={handleDelete}
-              disabled={remove.isPending}
-              className="rounded-full bg-negative px-4 py-1.5 text-sm font-bold text-black transition hover:bg-negative/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fg disabled:opacity-50"
-            >
-              {remove.isPending ? 'Deleting…' : 'Confirm'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmingDelete(false)}
-              disabled={remove.isPending}
-              className="btn-secondary"
-            >
-              Cancel
-            </button>
-          </span>
+          <InlineConfirm
+            prompt="Delete?"
+            pending={remove.isPending}
+            onConfirm={handleDelete}
+            onCancel={() => {
+              flushSync(() => setConfirmingDelete(false))
+              deleteButtonRef.current?.focus()
+            }}
+          />
         ) : (
           <span className="flex items-center gap-2">
             <button
@@ -85,6 +78,7 @@ export function CollectionListItem({
               {editing ? 'Close' : 'Edit'}
             </button>
             <button
+              ref={deleteButtonRef}
               type="button"
               onClick={() => setConfirmingDelete(true)}
               className="btn-danger"
@@ -96,7 +90,7 @@ export function CollectionListItem({
       </div>
 
       {remove.error && (
-        <p className="mt-2 text-xs text-negative">
+        <p role="alert" className="mt-2 text-xs text-negative">
           {mutationErrorMessage(remove.error, 'delete')}
         </p>
       )}
