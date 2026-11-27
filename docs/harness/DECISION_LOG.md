@@ -179,3 +179,11 @@ D-001 to D-008 record decisions already reflected in the code. Their original da
   (d) After a successful turn, `checkpointer.aprune([chat_id], strategy="keep_latest")`, and run with `durability="exit"`; deleting a chat later calls `adelete_thread`.
 - Alternatives: drop `chat_messages` and render from checkpoints — rejected (checkpoint state is summarized and holds raw tool JSON; schema is LangGraph-owned). Rebuild memory from `chat_messages` each turn (no checkpointer) — viable and simpler, but loses tool results across turns; revisit if checkpoint ops cost too much.
 - Impact: `services/agent/agent_orchestrator.py`, `repositories/chat_repository.py`; no schema change.
+
+### D-017 · Add node-exporter to the monitoring stack (user decision, supersedes D-012(d))
+- Date: 2026-11-27
+- Decided by: user (via the main session)
+- Status: Accepted
+- Context: D-012(d) excluded node-exporter because on macOS Docker Desktop it reports the LinuxKit VM, not the Mac. The user asked for it explicitly.
+- Decision: add `node-exporter` (`prom/node-exporter`, `pid: host`, `/` mounted ro at `/host`, no host port) and a `node` scrape job at `node-exporter:9100`. On Docker Desktop its numbers describe the Docker VM (still useful for VM memory/disk pressure); on Linux they describe the real host.
+- Impact: `monitoring-docker-compose.yaml`, `monitoring/prometheus/prometheus.yml`, `docs/ARCHITECTURE.md`.

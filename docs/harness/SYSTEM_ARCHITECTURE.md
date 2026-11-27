@@ -38,7 +38,7 @@ The three stages run as three consumer groups (`parser-workers`, `embed-workers`
 | Qdrant | Chunk vectors (dense + optional BM25 sparse), `document_id` in payload | Hybrid search with RRF fusion |
 | Redis | Client singleton warmed/closed in lifespan | No application reads or writes (confirmed T-036) |
 | Kafka | Message bus between ingest stages | Topic design: RAG_ARCHITECTURE.md §4 |
-| Monitoring (`monitoring-docker-compose.yaml`) | Prometheus, Grafana, exporters, cAdvisor, Loki + Alloy | Separate compose project on the infra network (D-012) |
+| Monitoring (`monitoring-docker-compose.yaml`) | Prometheus, Grafana, exporters, cAdvisor, node-exporter, Loki + Alloy | Separate compose project on the infra network (D-012) |
 
 Compose layout: `system-docker-compose.yaml` (infra, project `rag_chatbot_system`), `service-docker-compose.yaml` (api, frontend, ingest-worker; non-root), `monitoring-docker-compose.yaml`. Both service and monitoring join the external network `rag_chatbot_system_default`.
 

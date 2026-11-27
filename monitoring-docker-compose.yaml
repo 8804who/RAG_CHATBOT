@@ -114,6 +114,17 @@ services:
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
 
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: node-exporter
+    restart: unless-stopped
+    # 호스트 포트 없음. macOS Docker Desktop 에서는 Mac 이 아니라 Linux VM 의 지표가 나온다.
+    pid: host
+    command:
+      - --path.rootfs=/host
+    volumes:
+      - /:/host:ro
+
 networks:
   default:
     name: rag_chatbot_system_default
