@@ -166,3 +166,16 @@ D-001 to D-008 record decisions already reflected in the code. Their original da
 - Decision: `DESIGN-spotify.md` is the canonical visual system (dark `#121212` base, `#1ed760` accent only for primary CTA/active, pill buttons, uppercase button labels, heavy shadows on dark). UX/form/a11y/responsive rules in `design.md` still bind. No Spotify name, logo, or proprietary fonts.
 - Alternatives: rule-only adoption (no restyle) or restyle without changing rules — rejected by the user.
 - Impact: `.claude/.rules/design.md`, `docs/harness/DESIGN_GUIDELINES.md`, all of `frontend/src`.
+
+### D-016 · Chat state ownership: checkpoints are agent memory, `chat_messages` is the display transcript; a turn is all-or-nothing
+- Date: 2026-11-26
+- Decided by: `system-architect` (T-036)
+- Status: Accepted by PM 2026-11-26 with amendment to (c): the per-chat lock uses Redis `SET NX EX` (released in `finally`), not `FOR UPDATE NOWAIT`/advisory lock, because both pin a DB connection for the whole LLM call and conflict with releasing connections during the turn (KI-010 fix). History endpoint scope: `GET /chats/{chat_id}/messages` only (no chat list yet).
+- Context: T-033 added a LangGraph `AsyncPostgresSaver` beside `chat_messages`. Both are written per turn with no compensation, no per-chat lock, and no pruning (SYSTEM_ARCHITECTURE.md, "Structural risks").
+- Decision:
+  (a) `chat_messages` stays the user-visible transcript (future history/list endpoints read it); checkpoints are only the model's working memory and are never shown to users.
+  (b) A turn commits both or neither: on agent failure, remove the turn's messages from the thread (`aupdate_state` with `RemoveMessage` for everything since the turn's `HumanMessage`) and delete or mark the user `chat_messages` row; the client gets the error and can resend.
+  (c) One turn per chat at a time: `SELECT ... FOR UPDATE NOWAIT` on the `chats` row (or a Postgres advisory lock) at turn start → 409 on a second concurrent send. Redis is not needed for this.
+  (d) After a successful turn, `checkpointer.aprune([chat_id], strategy="keep_latest")`, and run with `durability="exit"`; deleting a chat later calls `adelete_thread`.
+- Alternatives: drop `chat_messages` and render from checkpoints — rejected (checkpoint state is summarized and holds raw tool JSON; schema is LangGraph-owned). Rebuild memory from `chat_messages` each turn (no checkpointer) — viable and simpler, but loses tool results across turns; revisit if checkpoint ops cost too much.
+- Impact: `services/agent/agent_orchestrator.py`, `repositories/chat_repository.py`; no schema change.

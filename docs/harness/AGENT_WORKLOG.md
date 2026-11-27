@@ -80,3 +80,73 @@
 - Verification: build + lint OK (developer, reviewer, and main session re-run); Playwright screenshots against mocked API, backend not running
 - Review: CR-011 PASS_WITH_NOTES; KI-030 (drop-zone border contrast) fixed by main session
 - Follow-up: unused `StatusBadge.tsx`; sidebar not collapsing on mobile; sub-44px touch targets (pre-existing)
+
+### 2026-11-26 · main session (user-directed) · T-033
+- Work: multi-turn memory via LangGraph `AsyncPostgresSaver` (thread_id=chat_id) + `SummarizationMiddleware`; Alembic excludes checkpoint tables
+- Files: backend/app/services/agent/agent_orchestrator.py, dependencies/clients.py, dependencies/services.py, main.py, core/constants.py, migrations/env.py, pyproject.toml, uv.lock, tests/services/agent/test_agent_orchestrator.py, docs/ARCHITECTURE.md
+- Verification: `uv run pytest -c pyproject.toml -q` → 102 passed / 2 failed (stale warmup tests, removed in T-038); live 2-turn round-trip on real AsyncPostgresSaver (no LLM) OK; `alembic check` → no new operations
+- Issues found: CR-012 F1 (failed turn leaves dangling tool_calls) — fixed in T-038
+- Follow-up: E2E in T-041
+- Cost: n/a (main session)
+
+### 2026-11-26 · backend-code-reviewer · T-034
+- Work: full backend review incl. T-033 → CR-012 CHANGES_REQUESTED (F1 blocker, F2 major, F3–F9 minor)
+- Deliverables: CR-012, KI-031..039
+- Verification: pytest 102 passed / 2 failed (stale tests); no EXPLAIN (postgres MCP down)
+- Issues found: KI-031..039
+- Follow-up: T-038
+- Cost: 102256 tokens / 12 tool uses / 131.8s
+
+### 2026-11-26 · frontend-code-reviewer · T-035
+- Work: full frontend review → CR-013 CHANGES_REQUESTED (F1 blocker invalidate loop, F2–F6 major, F7–F14 minor)
+- Deliverables: CR-013, KI-040..042
+- Verification: `npm run build` OK, `npm run lint` clean; code tracing, no browser run
+- Issues found: KI-040..042
+- Follow-up: T-039, T-040
+- Cost: 74162 tokens / 7 tool uses / 66.4s
+
+### 2026-11-26 · system-architect · T-036
+- Work: architecture review LLM ↔ backend ↔ frontend; 9 ranked findings; SYSTEM_ARCHITECTURE.md synced incl. T-033; D-016 proposed
+- Files: docs/harness/SYSTEM_ARCHITECTURE.md, docs/harness/DECISION_LOG.md
+- Verification: code reading only; nothing run
+- Issues found: failed-turn thread corruption, shared session in parallel tools, KI-010 pool exhaustion, unpruned checkpoints, concurrent-send race, unused max_tokens, summarization cost, no history endpoint
+- Follow-up: D-016 accepted by PM with Redis-lock amendment; fixes in T-038/T-040
+- Cost: 119740 tokens / 17 tool uses / 154.7s
+
+### 2026-11-26 · ux-designer · T-037
+- Work: UX audit of the SPA → 17 findings (P0×3, P1×7, P2×7)
+- Verification: code-only audit, no Playwright run
+- Issues found: in report (no owned docs)
+- Follow-up: T-039, T-040
+- Cost: 53314 tokens / 4 tool uses / 30.8s
+
+### 2026-11-26 · backend-developer + backend-code-reviewer · T-038
+- Work: D-016 all-or-nothing turn (thread rollback incl. cancellation, shielded), Redis per-chat lock → 409, per-tool DB sessions, aprune keep_latest, ChatOpenAI max_tokens/timeout/max_retries, summarization 30k trigger on gpt-4o-mini with usage callback, `GET /chats/{id}/messages`, stale tests removed, INFO logs without args/email, conninfo via make_conninfo, lifespan AsyncExitStack
+- Files: backend/app/** (agent_orchestrator.py, tools.py, chat_repository.py, chats.py, responses.py, exceptions/chat.py, redis_client.py, dependencies/*, chat_model_config.py, main.py, core/constants.py), backend/tests/**, docs/harness/API_CONTRACTS.md, docs/ARCHITECTURE.md
+- Verification: developer + PM: `uv run pytest -c pyproject.toml -q` → 125 passed, then 129 passed / 0 failed after CR-014 revision; ruff check + format --check clean
+- Review: CR-014 PASS_WITH_NOTES (F1 cancel-path rollback, F6 lifespan → fixed with tests, PM sign-off per reviewer)
+- Issues found: KI-043..051 (minor/deferred)
+- Follow-up: T-041 E2E
+- Cost: dev 186147 tokens / 38 tool uses / 545.8s + revision 194814 / 5 / 70.7s; reviewer 100324 / 17 / 149.0s
+
+### 2026-11-26 · frontend-developer + frontend-code-reviewer · T-039, T-040
+- Work: T-039 non-chat fixes (status-query loop, per-file uploads, per-row delete + InlineConfirm, logout cache clear, apiFetch headers/detail, .md/.txt only, mobile drawer, 44px targets, named exports, safeHttpUrl); T-040 chat (URL chat id + history hydration, error/Retry/409, abort on New chat, ThinkingIndicator, IME-safe Enter, safe citations); CR-015 follow-ups (id fallback, stable history ids, no navigate after unmount, no cache write after logout, poll retry, InlineConfirm focus/color, drawer label)
+- Files: frontend/src/**, docs/harness/DESIGN_GUIDELINES.md
+- Verification: developer + PM: `npm run build` OK, `npm run lint` clean, 0 `export default`; developer Playwright with stubbed API (backend down); follow-ups not browser-checked
+- Review: CR-015 PASS_WITH_NOTES; PM sign-off per reviewer
+- Issues found: KI-052..056; open: global 401 (CR-013 F10), drawer focus trap
+- Follow-up: T-041 E2E
+- Cost: T-039 149347 tokens / 29 / 333.6s; T-040 119734 / 24 / 291.1s + follow-up 145086 / 32 / 92.1s; reviewer 97341 / 9 / 131.0s
+
+### 2026-11-27 · qa-engineer · T-041
+- Work: E2E on real API + real OpenAI with test session bypass. QA-002: 8 PASS, 1 PARTIAL (failed turn forced only pre-LLM), KI-057 critical (Redis password not passed → every send 500 on stock Redis). QA-003 re-check on stock Redis: 5/5 PASS
+- Deliverables: QA-002, QA-003, KI-057..059, screenshots `.playwright-mcp/qa00{2,3}-*.png`
+- Verification: Playwright MCP exploratory (no spec file); 11 + 3 billed turns; turn latency 1.0–9.7 s; cleanup re-queried to 0 rows
+- Issues found: KI-057 (closed), KI-058 (closed), KI-059 (partly closed: empty chat row after failed first turn, orphan progress rows)
+- Follow-up: none for this scope
+- Cost: QA-002 118068 tokens / 69 tool uses / 427.9s; QA-003 125655 tokens / 76 tool uses / 585.9s (as reported for the resumed run)
+
+### 2026-11-27 · backend-developer + frontend-developer · T-038, T-040 (QA revisions)
+- Work: BE: Redis password passed, generic English chat error messages without ids (KI-057, KI-058). FE: draft restored after failed send, input hidden on unavailable chat, fixed English error copy per status (KI-058/059)
+- Verification: PM re-run `uv run pytest -c pyproject.toml -q` → 131 passed / 0 failed, ruff clean, live ping to stock Redis OK; `npm run build` + `npm run lint` OK; QA-003 PASS
+- Cost: BE 201183 tokens / 6 / 47.6s; FE 156501 / 6 / 67.9s
