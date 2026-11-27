@@ -26,6 +26,12 @@ CHAT_TURN_TIMEOUT_SECONDS = 240
 CHAT_TURN_LOCK_KEY_PREFIX = "chat:turn-lock:"
 CHAT_TURN_LOCK_TTL_SECONDS = CHAT_TURN_TIMEOUT_SECONDS + 60
 
+# 채팅 목록(GET /chats): 최대 반환 개수와 제목(첫 사용자 질문) 최대 글자 수
+# ponytail: 페이지네이션 없이 최근 100개 고정 상한. 채팅이 더 많아지면 커서 페이지네이션 도입.
+CHAT_LIST_LIMIT = 100
+CHAT_TITLE_MAX_LENGTH = 60
+CHAT_TITLE_ELLIPSIS = "…"
+
 # 멀티턴 대화 요약(SummarizationMiddleware). 체크포인터에 쌓인 스레드 메시지가
 # TRIGGER 토큰을 넘으면 오래된 메시지를 요약 1개로 대체하고 최근 KEEP개만 원문 유지.
 # 검색 결과가 커서 낮은 값이면 거의 매 턴 요약이 돈다(T-036 #7). 요약은 가장 싼 등록 모델로.

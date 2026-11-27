@@ -235,3 +235,52 @@ Notes:
 - Verified correct: pending/failed turn is shown only for its own chat id; Retry reuses the turn id, so no duplicate bubble; success replaces the pending bubble with the same key; createChat failure leaves `chatId` null and Retry recreates; the 403/404 history path shows a terminal message and no retries; `safeHttpUrl` blocks `javascript:`; IME guard `isComposing` is correct; `staleTime: Infinity` plus `setQueryData` with `refetchType: 'none'` invalidation is consistent; per-file upload uses one shared mutation via `mutateAsync` and the hook-level `onSuccess` fires per call.
 - Not reviewed: visual/browser pass, mobile layout at width, Collections/MyPage/Login pages beyond the touched lines.
 - Re-review: not required; PM sign-off after F1 decision (is the app served over HTTPS?).
+
+## CR-016 — T-043 chat session list (uncommitted frontend diff, feat/chat-session)
+
+Verdict: PASS_WITH_NOTES. Build/lint run by PM (OK); not re-run. No browser pass.
+
+| # | Sev | Where | Finding | Fix | Conf. |
+|---|-----|-------|---------|-----|-------|
+| F1 | major | `pages/ChatPage.tsx:~205-230` overlay | Opening "Chats" keeps focus on the (now covered) Chats button; Escape is handled only by `onKeyDown` on the aside, so Escape does nothing until focus is inside it. No focus move, no trap/`inert` on the content, no `role=dialog`/`aria-modal`; keyboard users tab through hidden page content. After select/New chat/delete-active the focus is lost to body. | On open focus New chat/close button; Escape on `document` (or `inert` on the main column) while open; refocus the Chats button on select | confirmed |
+| F2 | minor | `hooks/useChat.ts:31-40` | `onSuccess` is frozen at `mutate` time (RQ v5), so `activeChatId` is stale. Delete active chat A, Confirm, click chat B while "Deleting…", success sees A as active, runs `reset()`: navigates to /chat and aborts B's in-flight turn. | Read the current id from a ref, or compare against `location` at success time | plausible |
+| F3 | minor | `hooks/useChat.ts:25,31` | New exported hooks lack explicit return types (code.md rule). | Add `UseQueryResult<ChatSummary[]>` / `UseMutationResult<void, Error, string>` | confirmed |
+| F4 | minor | `ChatListItem.tsx` | One `useMutation` observer per row (max 100) and the whole list re-renders on every ChatPage turn-state change (inline closures). Cost negligible at 100 rows; no memo needed. | None now | confirmed |
+
+Verified OK: `['chats','list']` is not a prefix of `['chats',id,'messages']`; nothing invalidates `['chats']`; list invalidation touches only the list. Delete vs in-flight turn: backend 409 is surfaced in the row; if a non-active chat's turn lands after delete, `setQueryData` skips (no entry) and only the list is refetched. Active delete: `reset()` (abort, navigate) then `removeQueries` exact, so no 404 refetch. 204 handled by `apiFetch`. Sign-out `queryClient.clear()` covers the list. Tokens exist in index.css; no `any`, no default export, API only via `lib/api`.
+
+### CR-016 re-review addendum (T-043 revision)
+
+Verdict: PASS_WITH_NOTES. Traced by code read only; build/lint by PM (OK), no browser pass.
+- F1 fixed: `ChatPage.tsx:93-101` focuses the close button and adds a document Escape listener (cleanup on close); `closeList` (`:104`) restores focus to the Chats button, used by Escape, ✕, select (`:236`), New chat (`startNewChat`) and delete-active (`onActiveDeleted={onNewChat}`, `ChatListPanel.tsx:47`); `role=dialog`/`aria-modal`/`aria-label` only while open (`:216-218`); main column `inert={listOpen}` (`:240`). `closeList` reads only refs and a setter, so the effect's closure is not stale.
+- F2 fixed: `useChat.ts:44-51` reads the active id from a ref at success time; deleting A then opening B no longer resets B.
+- F3 fixed: explicit return types at `useChat.ts:31,39`.
+- Known edge (open overlay below lg, widen past lg): confirmed by trace. Main stays `inert` and the aside keeps `role=dialog`, so the composer is unreachable until Escape, selecting a chat, or New chat. Not blocking: lg+ viewport change mid-overlay is rare, three exits exist, nothing is lost. Minor (tablet rotation is the realistic trigger). Cheapest fix if wanted: an effect that listens to `matchMedia('(min-width: 1024px)')` `change` and calls `closeList()`, or `inert={listOpen && !isLg}`.
+
+## CR-017 — T-042 chat list + delete (uncommitted backend diff, feat/chat-session)
+
+Verdict: PASS_WITH_NOTES. Read by code only; no live Postgres (docker down), so the SQL was not run through EXPLAIN. pytest/ruff by PM (151 passed), not re-run.
+
+| # | Sev | Where | Finding | Fix | Conf. |
+|---|-----|-------|---------|-----|-------|
+| F1 | minor | `agent_orchestrator.py:~196-218` vs `send_message` | Ownership is checked before the lock, never re-checked after it. A send that passed `_get_owned_chat` just before a delete finished acquires the freed lock, runs the whole LLM turn, then the persist step hits the FK on the deleted chat (500) and recreates an orphan checkpoint thread. Window is one Redis round trip, and the user is deleting a chat they are chatting in. A second delete of a gone chat returns 204 instead of 404 (idempotent, fine). | Re-fetch the chat after the lock in both paths (cheap), or catch the FK error in persist and clear the thread | plausible |
+| F2 | minor | `agent_orchestrator.py:~215` | `delete_chat` keeps the read transaction from `_get_owned_chat` open (no `db.commit()` as `send_message` does) while awaiting Redis and `adelete_thread`. Short I/O, so only a brief idle-in-transaction connection; the repo `commit()` ends it. | Optional `await db.commit()` after the ownership check, for consistency | confirmed |
+| F3 | minor | `chat_repository.py:~152` | Title subquery is a select-list scalar subquery. With `LIMIT 100` and a sort on another expression Postgres usually postpones it, but it can run once per owned chat. Index `ix_chat_messages_chat_id_created_at` serves the ordered scan (role filtered on heap, `id` tiebreak needs an incremental sort over the few rows per chat). Fine at current scale; check EXPLAIN once a DB is up. | None now | plausible |
+
+Verified OK:
+- SQL: `max()` with no GROUP BY in a LATERAL always yields one row, so `JOIN LATERAL ... ON true` keeps chats without messages (NULL last_message_at; `coalesce(..., created_at)` handles it). Owner filter and `id` tiebreak are deterministic. `regexp_replace(..., 'g')`, `btrim`, `left(text, 61)` are valid Postgres. Max-61 chars is cut in SQL and the ellipsis is added in `_truncate_title`, so the boundary is exact (60 fits, 61 gets the ellipsis). One statement, no N+1. `ChatMessageRole.USER.value` matches the stored string role.
+- Delete: ownership then lock (409 before any destructive step), checkpoint thread first, row second; a failure between them leaves the row, so the same request retries cleanly. Lock released in `finally` on every path after acquire; a cancellation hits the same `finally` as `send_message` (the one `await redis.delete` runs once). CASCADE on `chat_messages.chat_id` confirmed in `models/chat.py:48`. `adelete_thread` exists in langgraph-checkpoint-postgres >= 3.2.1.
+- `send_message` refactor: same order (owner check, commit, acquire, try/finally release), same 409 message and `code_path` (`agent_chat_orchestrator-send_message-error`); only the warning log gained `action`. Unchanged.
+- Layering, Korean docstrings, logs only in the service layer, no f-string logs: OK. `chat_model` etc. map by name through `from_attributes` on the dataclass, OK. The import order in the orchestrator constants block is off (`CHAT_LIST_LIMIT` after `CHAT_SUMMARY_MODEL`); ruff passed, so a nit only.
+- Orphan `chat_usage_logs` / `agent_tool_call_logs` rows: acceptable for now. They are aggregate/audit data, carry only a chat id string, and the API docstring says so. Revisit if a privacy/erasure requirement shows up (they hold no message text).
+
+Test gaps: repository tests assert on compiled statements and mocks, so they do not prove the SQL runs on Postgres (types, `lateral`, `left` binding). Add one integration check against a real Postgres when docker is up (chat with messages, without messages, 2 user messages, long and multi-space title, ordering). No test for the delete-vs-send race (F1) or for cancellation during delete. The delete tests use `InMemorySaver`, not `AsyncPostgresSaver`.
+Not reviewed: frontend, Alembic (no migration in the diff), real checkpoint tables.
+
+### CR-017 re-review addendum (T-042 revision)
+
+Verdict: PASS. Code read only; pytest 154 / ruff by PM, not re-run by me.
+- F1 closed: both `delete_chat` (`agent_orchestrator.py:221`) and `send_message` (`:255`) re-run `_get_owned_chat` after the lock, so a send that wins the lock after a delete finished gets 404 before `_run_turn`; the stale-`chat` risk is gone because `_run_turn` (`:257`) receives the re-fetched object. Delete-vs-delete returns 404 on the loser. The lock is held by one request through delete, so no check-then-act gap remains.
+- F2 closed: `db.commit()` at `:216` (delete) ends the read transaction before Redis and `adelete_thread`; a second commit at `:222` / `:256` does the same after the re-check, and the re-check's own 404 raises before it.
+- Lock: every post-acquire path (re-check 404/403, adelete_thread or delete error, `_run_turn` error, cancellation) is inside `try/finally` and releases once; a 409 raises in `_acquire_turn_lock` before `try`, so a lock held by someone else is never deleted. `send_message` keeps the 409, rollback and persist behavior (`_run_turn` unchanged).
+- Tests: the two `after_lock` tests assert 404, no agent / no thread or row delete, lock released; the ordering test proves commit precedes lock and `adelete_thread`. Minor gap: no assertion that `_run_turn` gets the second `chat` (both stubs return equal objects), not blocking.

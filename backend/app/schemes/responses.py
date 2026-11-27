@@ -179,6 +179,23 @@ class ChatResponse(BaseModel):
     created_at: datetime
 
 
+class ChatSummaryResponse(BaseModel):
+    # 채팅 목록 1건. title은 첫 사용자 질문(60자 초과 시 말줄임), 메시지 없으면 null.
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str | None
+    chat_model: str
+    collection_name: str | None
+    created_at: datetime
+    last_message_at: datetime | None
+
+
+class ChatListResponse(BaseModel):
+    # 최근 활동순(마지막 메시지 시각, 없으면 생성 시각) 내 채팅 목록.
+    chats: list[ChatSummaryResponse]
+
+
 class CitationResponse(BaseModel):
     source_type: str
     title: str

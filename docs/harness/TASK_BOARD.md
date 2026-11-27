@@ -50,6 +50,8 @@ Priority: `P0` (urgent/blocking) · `P1` (current scope) · `P2` (later)
 | T-039 | Frontend non-chat fixes: CR-013 F1/F5/F6/F7/F8/F9/F11/F13, KI-040 (non-chat files), KI-041 helper, UX #3/#8–#11/#16/#17 | `frontend-developer` | P0 | T-035, T-037 | build + lint pass | COMPLETED | CR-015 PASS_WITH_NOTES; QA-002 upload/drawer PASS; build+lint OK | CR-013, KI-040 |
 | T-040 | Frontend chat fixes: CR-013 F2/F3/F4/F12/F14, UX #1/#2/#4–#7/#12–#15, hydrate from `GET /chats/{id}/messages`, handle 409 | `frontend-developer` | P0 | T-038, T-039 | build + lint pass | COMPLETED | CR-015 PASS_WITH_NOTES; QA-002 KI-059 draft/unavailable-input fixed; QA-003 PASS; build+lint OK. Open: global 401 (F10), drawer focus trap | D-016, KI-042 |
 | T-041 | E2E QA of multi-turn chat + fixes (real API, real OpenAI, test session row, cleanup) | `qa-engineer` | P0 | T-038, T-039, T-040 | QA-002 records each behavior PASS/FAIL; test rows cleaned up | COMPLETED | QA-002 REVISION_REQUIRED (KI-057 critical) → QA-003 PASS 5/5 on stock Redis; test rows cleaned to 0 | T-033, T-038, T-039, T-040 |
+| T-042 | Chat session list backend: `GET /api/v1/chats` (owner's chats, title from first user msg, last_message_at, one query, newest activity first) + `DELETE /api/v1/chats/{id}` (owner-only, 409 while a turn runs, `adelete_thread` per D-016(d)) | `backend-developer` | P1 | — | TDD; pytest all pass; ruff clean; API_CONTRACTS updated | VERIFY_BLOCKED | CR-017 re-review PASS; PM re-run (dummy env): pytest 154 passed / 0 failed, ruff clean. Docker down: list SQL not run/EXPLAINed on live Postgres (F3), no live-Postgres test | D-016, CR-017 |
+| T-043 | Chat session list UI: sidebar/list in ChatPage with New chat, active highlight, navigate to /chat/<id>, delete, list refresh after first message | `frontend-developer` | P1 | T-042 (contract only) | build + lint pass | VERIFY_BLOCKED | CR-016 re-review PASS_WITH_NOTES; PM build+lint OK; types match the T-042 schema. Docker down: no browser/E2E check vs the real API. Open: lg-resize inert edge | T-042, CR-016 |
 
 ## Skipped phases
 
@@ -73,6 +75,10 @@ Priority: `P0` (urgent/blocking) · `P1` (current scope) · `P2` (later)
 | T-029~T-031 | `backend-code-reviewer`, `frontend-code-reviewer` | `eval/` TS tooling only, no matching reviewer (same as T-027) | PM runs `npx tsc --noEmit` and reviews the diff |
 | T-029~T-031 | `system-architect`, `ux-designer`, `qa-engineer`, `backend-developer`, `frontend-developer` | No architecture, UI, or app behavior change | — |
 | T-032 | `ux-designer`, `qa-engineer` | User supplied the design spec; visual-only change, no flow change; backend not running for E2E | developer Playwright screenshots (mocked API) + CR-011 contrast check |
+| T-042~T-043 | Complexity: T2 (BE + FE, additive API contract; no LLM path, no schema change expected) | — | — |
+| T-042~T-043 | `system-architect` | Additive read/delete endpoints; D-016(a) already names `chat_messages` as the source for a future list endpoint and D-016(d) defines delete; user limited the team | PM fixed the contract in both briefs |
+| T-042~T-043 | `qa-engineer`, `ux-designer` | User limited the team; existing chat screen extended with a standard list pattern | reviews + pytest/ruff/build/lint |
+| T-042~T-043 | `rag-llm-*` | No agent/prompt/retrieval change | — |
 
 ## Completed outside the board flow
 

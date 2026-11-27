@@ -105,6 +105,30 @@ export interface ChatHistory {
   messages: ChatMessage[]
 }
 
+// GET /chats: the user's chats, newest activity first (max 100).
+export interface ChatSummaryResponse {
+  id: string
+  title: string | null
+  chat_model: string
+  collection_name: string | null
+  created_at: string
+  last_message_at: string | null
+}
+
+export interface ChatListResponse {
+  chats: ChatSummaryResponse[]
+}
+
+/** ChatSummaryResponse mapped for the UI. */
+export interface ChatSummary {
+  id: string
+  title: string | null
+  chatModel: string
+  collectionName: string | null
+  createdAt: string
+  lastMessageAt: string | null
+}
+
 // Token usage stats (GET /usage/stats), grouped by model, with cost computed
 // from per-model pricing. `cost`/`currency` are null when a model has no pricing
 // row. Shown on the My page.

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from models import ChatMessage
 
@@ -61,3 +62,19 @@ class ChatHistory:
     chat_model: str
     collection_name: str | None
     messages: list[ChatMessage] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class ChatSummary:
+    """
+    채팅 목록 한 항목: 제목(첫 사용자 질문 미리보기) + 마지막 메시지 시각
+
+    title·last_message_at은 메시지가 없는 채팅이면 None.
+    """
+
+    id: str
+    title: str | None
+    chat_model: str
+    collection_name: str | None
+    created_at: datetime
+    last_message_at: datetime | None

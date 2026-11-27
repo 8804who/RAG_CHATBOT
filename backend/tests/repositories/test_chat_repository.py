@@ -1,10 +1,14 @@
 import asyncio
+from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from repositories.chat_repository import ChatRepository
+from schemes.dto.chat import ChatSummary
 
 
 def _make_db() -> AsyncMock:
@@ -141,3 +145,135 @@ def test_list_messages_success_with_empty_chat():
     db.execute.return_value = result
 
     assert asyncio.run(repo.list_messages(db, "c1")) == []
+
+
+def _executed_sql(db: AsyncMock) -> str:
+    """마지막으로 실행된 문장을 PostgreSQL 방언으로 컴파일한 SQL 문자열."""
+    return str(db.execute.call_args.args[0].compile(dialect=postgresql.dialect()))
+
+
+def test_list_chats_success_with_summary_rows():
+    """
+    채팅 목록 조회(성공) - 한 문장으로 요약 행 매핑
+
+    입력 데이터
+        - owner_id = 1, limit = 100, 조회 행 1건(첫 질문 미리보기 + 마지막 메시지 시각)
+
+    예상 출력 데이터
+        - ChatSummary 1건(행 값 그대로), execute 1회(N+1 없음)
+    """
+    repo = ChatRepository()
+    db = _make_db()
+    created_at = datetime(2026, 11, 26, 12, 0, tzinfo=UTC)
+    last_message_at = datetime(2026, 11, 27, 9, 0, tzinfo=UTC)
+    result = MagicMock()
+    result.all.return_value = [
+        SimpleNamespace(
+            id="c1",
+            title="첫 질문",
+            chat_model="gpt-4o-mini",
+            collection_name=None,
+            created_at=created_at,
+            last_message_at=last_message_at,
+        )
+    ]
+    db.execute.return_value = result
+
+    chats = asyncio.run(repo.list_chats(db, owner_id=1, limit=100))
+
+    assert chats == [
+        ChatSummary(
+            id="c1",
+            title="첫 질문",
+            chat_model="gpt-4o-mini",
+            collection_name=None,
+            created_at=created_at,
+            last_message_at=last_message_at,
+        )
+    ]
+    db.execute.assert_awaited_once()
+
+
+def test_list_chats_success_with_owner_filter_order_and_limit():
+    """
+    채팅 목록 조회(성공) - 소유자 필터·최근 활동순 정렬·상한 적용 쿼리
+
+    입력 데이터
+        - owner_id = 7, limit = 100
+
+    예상 출력 데이터
+        - owner_id 필터, MAX(created_at) LATERAL 집계, 첫 사용자 메시지 상관 서브쿼리
+          (created_at, id 오름차순 1건), COALESCE(last_message_at, created_at) DESC, id 정렬, LIMIT
+    """
+    repo = ChatRepository()
+    db = _make_db()
+    db.execute.return_value = MagicMock(all=MagicMock(return_value=[]))
+
+    asyncio.run(repo.list_chats(db, owner_id=7, limit=100))
+
+    sql = _executed_sql(db)
+    assert "chats.owner_id = %(owner_id_1)s" in sql
+    assert "LATERAL" in sql
+    assert "max(chat_messages.created_at)" in sql
+    assert "chat_messages_1.role = %(role_1)s" in sql
+    assert "ORDER BY chat_messages_1.created_at, chat_messages_1.id" in sql
+    assert (
+        "ORDER BY coalesce(anon_1.last_message_at, chats.created_at) DESC, chats.id"
+        in sql
+    )
+    assert "LIMIT %(param_1)s" in sql
+
+
+def test_list_chats_success_with_no_chats():
+    """
+    채팅 목록 조회(성공) - 채팅이 없는 사용자
+
+    입력 데이터
+        - owner_id = 1, 조회 행 없음
+
+    예상 출력 데이터
+        - 빈 리스트
+    """
+    repo = ChatRepository()
+    db = _make_db()
+    db.execute.return_value = MagicMock(all=MagicMock(return_value=[]))
+
+    assert asyncio.run(repo.list_chats(db, owner_id=1, limit=100)) == []
+
+
+def test_delete_chat_success_with_single_commit():
+    """
+    채팅 삭제(성공) - chats 행 삭제(메시지는 FK CASCADE) 후 커밋
+
+    입력 데이터
+        - chat_id = "c1"
+
+    예상 출력 데이터
+        - chats.id 조건 DELETE 1회, commit 1회
+    """
+    repo = ChatRepository()
+    db = _make_db()
+
+    asyncio.run(repo.delete_chat(db, "c1"))
+
+    sql = _executed_sql(db)
+    assert sql.startswith("DELETE FROM chats WHERE chats.id = %(id_1)s")
+    db.commit.assert_awaited_once()
+
+
+def test_delete_chat_failed_with_commit_error():
+    """
+    채팅 삭제(실패) - 커밋 실패 시 예외 전파
+
+    입력 데이터
+        - db.commit이 RuntimeError
+
+    예상 출력 데이터
+        - RuntimeError 전파
+    """
+    repo = ChatRepository()
+    db = _make_db()
+    db.commit.side_effect = RuntimeError("db down")
+
+    with pytest.raises(RuntimeError):
+        asyncio.run(repo.delete_chat(db, "c1"))

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dependencies.auth import get_current_user
@@ -9,8 +9,10 @@ from schemes.requests import CreateChatRequest, SendChatMessageRequest
 from schemes.responses import (
     ChatHistoryMessageResponse,
     ChatHistoryResponse,
+    ChatListResponse,
     ChatMessageResponse,
     ChatResponse,
+    ChatSummaryResponse,
     CitationResponse,
 )
 from services.agent import AgentChatOrchestrator
@@ -54,6 +56,65 @@ async def create_chat(
         owner_id=current_user.id,
     )
     return ChatResponse.model_validate(chat)
+
+
+@router.get("", status_code=status.HTTP_200_OK, response_model=ChatListResponse)
+async def list_chats(
+    chat_orchestrator: AgentChatOrchestrator = Depends(get_chat_orchestrator),
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> ChatListResponse:
+    """
+    ### 내 채팅 목록 조회
+
+    요청자가 소유한 채팅만 최근 활동순(마지막 메시지 시각, 없으면 생성 시각)으로
+    최대 100개 반환한다(페이지네이션 없음).
+
+    Response Body:
+        chats: 채팅 목록
+            id: 채팅 id
+            title: 첫 사용자 질문(공백 정리, 60자 초과 시 "…"), 메시지 없으면 null
+            chat_model: 고정된 생성 모델
+            collection_name: 고정된 컬렉션(없으면 null)
+            created_at: 생성 시각
+            last_message_at: 마지막 메시지 시각(없으면 null)
+
+    Error Response:
+        로그인하지 않은 경우: (401 Unauthorized)
+    """
+    chats = await chat_orchestrator.list_chats(db, requester=current_user)
+    return ChatListResponse(
+        chats=[ChatSummaryResponse.model_validate(chat) for chat in chats]
+    )
+
+
+@router.delete(
+    "/{chat_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+)
+async def delete_chat(
+    chat_id: str = Path(..., min_length=1),
+    chat_orchestrator: AgentChatOrchestrator = Depends(get_chat_orchestrator),
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> None:
+    """
+    ### 채팅 삭제
+
+    채팅과 메시지, 에이전트 대화 메모리(체크포인트)를 함께 삭제한다. 사용량·도구
+    호출 로그는 집계용으로 남는다.
+
+    Path Variables:
+        chat_id(str): 삭제할 채팅 id
+
+    Response Body:
+        NO CONTENT
+
+    Error Response:
+        채팅이 존재하지 않을 경우: (404 Not Found)
+        다른 사용자의 채팅일 경우: (403 Forbidden)
+        같은 채팅의 메시지를 처리 중일 경우: (409 Conflict)
+    """
+    await chat_orchestrator.delete_chat(db, chat_id=chat_id, requester=current_user)
 
 
 @router.get(

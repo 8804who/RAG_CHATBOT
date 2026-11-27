@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -20,6 +21,7 @@ from exceptions.chat import (
 )
 from exceptions.document import CollectionMetaNotFoundError
 from models import Chat, ChatMessage, User
+from schemes.dto.chat import ChatSummary
 from services.agent.agent_orchestrator import AgentChatOrchestrator, _extract_citations
 
 
@@ -45,6 +47,7 @@ def _redis(acquired: bool = True) -> AsyncMock:
 def _make_orchestrator(**overrides):
     checkpointer = MagicMock()
     checkpointer.aprune = AsyncMock()
+    checkpointer.adelete_thread = AsyncMock()
     deps = dict(
         chat_repository=AsyncMock(),
         chat_model_registry=MagicMock(),
@@ -408,6 +411,28 @@ def test_send_message_failed_with_turn_in_progress():
     create_agent.assert_not_called()
     deps["chat_repository"].add_turn_messages.assert_not_awaited()
     deps["redis_client"].delete.assert_not_awaited()
+
+
+def test_send_message_failed_with_chat_deleted_after_lock():
+    """
+    메시지 전송(실패) - 잠금 대기 중 채팅이 삭제됨(전송·삭제 경합)
+
+    입력 데이터
+        - get_chat: 잠금 전 = 채팅, 잠금 후 재확인 = None
+
+    예상 출력 데이터
+        - raise ChatNotFoundError(404), 에이전트 미실행, 잠금 해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.side_effect = [_chat(), None]
+
+    with patch("services.agent.agent_orchestrator.create_agent") as create_agent:
+        with pytest.raises(ChatNotFoundError):
+            _send(orchestrator)
+
+    create_agent.assert_not_called()
+    deps["chat_repository"].add_turn_messages.assert_not_awaited()
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
 
 
 def test_send_message_success_with_lock_acquired_and_released():
@@ -942,3 +967,231 @@ def test_send_message_failed_with_cancel_mid_tool_call_rolls_back():
     assert messages == []
     deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
     deps["chat_repository"].add_turn_messages.assert_not_awaited()
+
+
+def _summary(chat_id: str, title: str | None) -> ChatSummary:
+    return ChatSummary(
+        id=chat_id,
+        title=title,
+        chat_model="gpt-4o-mini",
+        collection_name=None,
+        created_at=datetime(2026, 11, 26, 12, 0, tzinfo=UTC),
+        last_message_at=None,
+    )
+
+
+def test_list_chats_success_with_owner_and_limit():
+    """
+    채팅 목록 조회(성공) - 요청자 소유 채팅만, 상한 100개
+
+    입력 데이터
+        - requester.id = 1, 저장소가 짧은 제목 1건 반환
+
+    예상 출력 데이터
+        - 저장소 호출 owner_id=1, limit=100, 제목은 그대로
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].list_chats.return_value = [_summary("c1", "짧은 질문")]
+
+    chats = asyncio.run(orchestrator.list_chats(AsyncMock(), requester=_user()))
+
+    assert [chat.title for chat in chats] == ["짧은 질문"]
+    kwargs = deps["chat_repository"].list_chats.call_args.kwargs
+    assert (kwargs["owner_id"], kwargs["limit"]) == (1, 100)
+
+
+def test_list_chats_success_with_long_title_truncated():
+    """
+    채팅 목록 조회(성공) - 60자 초과 제목은 60자 + "…"
+
+    입력 데이터
+        - 저장소 미리보기: 61자("가" * 61), 정확히 60자("나" * 60)
+
+    예상 출력 데이터
+        - "가" * 60 + "…", "나" * 60(그대로)
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].list_chats.return_value = [
+        _summary("c1", "가" * 61),
+        _summary("c2", "나" * 60),
+    ]
+
+    chats = asyncio.run(orchestrator.list_chats(AsyncMock(), requester=_user()))
+
+    assert [chat.title for chat in chats] == ["가" * 60 + "…", "나" * 60]
+
+
+def test_list_chats_success_with_chat_without_messages():
+    """
+    채팅 목록 조회(성공) - 메시지 없는 채팅은 제목 null
+
+    입력 데이터
+        - 저장소 미리보기 None
+
+    예상 출력 데이터
+        - title = None
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].list_chats.return_value = [_summary("c1", None)]
+
+    chats = asyncio.run(orchestrator.list_chats(AsyncMock(), requester=_user()))
+
+    assert chats[0].title is None
+
+
+def _delete(orchestrator, chat_id: str = "c1", user_id: int = 1) -> None:
+    asyncio.run(
+        orchestrator.delete_chat(AsyncMock(), chat_id=chat_id, requester=_user(user_id))
+    )
+
+
+def test_delete_chat_success_with_thread_and_row_deleted():
+    """
+    채팅 삭제(성공) - 턴 잠금을 잡고 체크포인트 스레드 + chats 행 삭제 후 잠금 해제
+
+    입력 데이터
+        - chat_id = "c1", 소유자 요청
+
+    예상 출력 데이터
+        - adelete_thread("c1"), delete_chat("c1"), 잠금 키 chat:turn-lock:c1 획득·해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+
+    _delete(orchestrator)
+
+    deps["checkpointer"].adelete_thread.assert_awaited_once_with("c1")
+    assert deps["chat_repository"].delete_chat.call_args.args[1] == "c1"
+    assert deps["redis_client"].set_if_absent.call_args.args[0] == "chat:turn-lock:c1"
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+
+
+def test_delete_chat_failed_with_turn_in_progress():
+    """
+    채팅 삭제(실패) - 같은 채팅 턴 진행 중(잠금 보유)
+
+    입력 데이터
+        - set_if_absent = False
+
+    예상 출력 데이터
+        - ChatTurnInProgressError(409), 아무것도 삭제하지 않고 남의 잠금도 해제하지 않음
+    """
+    orchestrator, deps = _make_orchestrator(redis_client=_redis(acquired=False))
+    deps["chat_repository"].get_chat.return_value = _chat()
+
+    with pytest.raises(ChatTurnInProgressError):
+        _delete(orchestrator)
+
+    deps["checkpointer"].adelete_thread.assert_not_awaited()
+    deps["chat_repository"].delete_chat.assert_not_awaited()
+    deps["redis_client"].delete.assert_not_awaited()
+
+
+def test_delete_chat_failed_with_other_users_chat():
+    """
+    채팅 삭제(실패) - 다른 사용자의 채팅
+
+    입력 데이터
+        - 채팅 owner_id = 2, 요청자 id = 1
+
+    예상 출력 데이터
+        - ChatAccessDeniedError(403), 잠금·삭제 없음
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat(owner_id=2)
+
+    with pytest.raises(ChatAccessDeniedError):
+        _delete(orchestrator)
+
+    deps["redis_client"].set_if_absent.assert_not_awaited()
+    deps["chat_repository"].delete_chat.assert_not_awaited()
+
+
+def test_delete_chat_failed_with_already_deleted_chat():
+    """
+    채팅 삭제(실패) - 이미 삭제된(없는) 채팅 재요청
+
+    입력 데이터
+        - get_chat = None (두 번째 삭제 요청)
+
+    예상 출력 데이터
+        - ChatNotFoundError(404), 추가 삭제 없음
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = None
+
+    with pytest.raises(ChatNotFoundError):
+        _delete(orchestrator)
+
+    deps["checkpointer"].adelete_thread.assert_not_awaited()
+    deps["chat_repository"].delete_chat.assert_not_awaited()
+
+
+def test_delete_chat_failed_with_checkpointer_error():
+    """
+    채팅 삭제(실패) - 체크포인트 삭제 실패 시 chats 행은 남기고 잠금 해제(재시도 가능)
+
+    입력 데이터
+        - adelete_thread가 RuntimeError
+
+    예상 출력 데이터
+        - RuntimeError 전파, delete_chat 미호출, 잠금 해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    deps["checkpointer"].adelete_thread.side_effect = RuntimeError("pg down")
+
+    with pytest.raises(RuntimeError):
+        _delete(orchestrator)
+
+    deps["chat_repository"].delete_chat.assert_not_awaited()
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+
+
+def test_delete_chat_failed_with_chat_deleted_after_lock():
+    """
+    채팅 삭제(실패) - 잠금 대기 중 다른 요청이 먼저 삭제함(중복 삭제 경합)
+
+    입력 데이터
+        - get_chat: 잠금 전 = 채팅, 잠금 후 재확인 = None
+
+    예상 출력 데이터
+        - ChatNotFoundError(404), 스레드·행 삭제 없음, 잠금 해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.side_effect = [_chat(), None]
+
+    with pytest.raises(ChatNotFoundError):
+        _delete(orchestrator)
+
+    deps["checkpointer"].adelete_thread.assert_not_awaited()
+    deps["chat_repository"].delete_chat.assert_not_awaited()
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+
+
+def test_delete_chat_success_with_read_transaction_ended_before_lock():
+    """
+    채팅 삭제(성공) - 소유권 조회 트랜잭션을 잠금·스레드 삭제 전에 종료
+
+    입력 데이터
+        - 요청 DB 세션(AsyncMock)
+
+    예상 출력 데이터
+        - db.commit()이 잠금 획득과 adelete_thread보다 먼저 호출
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    calls: list[str] = []
+    db = AsyncMock()
+    db.commit.side_effect = lambda: calls.append("commit")
+    deps["redis_client"].set_if_absent.side_effect = lambda *a, **k: (
+        calls.append("lock") or True
+    )
+    deps["checkpointer"].adelete_thread.side_effect = lambda *a: calls.append(
+        "adelete_thread"
+    )
+
+    asyncio.run(orchestrator.delete_chat(db, chat_id="c1", requester=_user()))
+
+    assert calls[0] == "commit"
+    assert calls.index("commit", 1) < calls.index("adelete_thread")
