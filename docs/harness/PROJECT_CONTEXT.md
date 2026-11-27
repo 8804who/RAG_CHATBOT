@@ -22,7 +22,7 @@ As a portfolio project, it values a structure that supports "measure → improve
 
 - **Backend:** Python 3.13, FastAPI, SQLAlchemy async (asyncpg), Alembic, `uv`, LangChain/LangGraph, Langfuse, Prometheus metrics (`/metrics`)
 - **Frontend:** Vite, React 19, TypeScript, Tailwind v4, React Query v5, React Router v7
-- **Infra (docker compose):** `system-docker-compose.yaml` — PostgreSQL, Redis (+RedisInsight), Qdrant, Kafka (+Kafka UI); `service-docker-compose.yaml` — api, frontend (nginx), ingest-worker (non-root); `monitoring-docker-compose.yaml` — Prometheus, Grafana, exporters, cAdvisor, Loki, Alloy
+- **Infra (docker compose):** `system-docker-compose.yaml` — PostgreSQL, Redis (+RedisInsight), Qdrant, Kafka (+Kafka UI); `service-docker-compose.yaml` — api, frontend (nginx), ingest-worker (non-root); `monitoring-docker-compose.yaml` — Prometheus, Grafana, exporters, cAdvisor, node-exporter, Loki, Alloy
 - **LLM/embedding:** OpenAI (`gpt-4o-mini`, `gpt-4o`, `text-embedding-3-*`), fastembed (`multilingual-e5-large`), BM25 sparse — details in [LLM_SPECIFICATION.md](LLM_SPECIFICATION.md)
 - **Eval:** Playwright + TypeScript (`eval/`), LLM-as-judge
 
