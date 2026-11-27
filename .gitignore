@@ -54,3 +54,5 @@ backend/app/migrations/versions/
 .mcp.json
 # Load test reports
 loadtest/reports/
+# QA reports
+.playwright-mcp/

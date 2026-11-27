@@ -27,10 +27,12 @@ Add new tokens only in `@theme` in `index.css`, and update this table with them.
 
 ## Patterns in use (from the code, 2026-11-26)
 
-- Shared control utilities (`@utility` in `index.css`): `btn-primary` (green pill, black uppercase label), `btn-secondary` (outlined pill), `btn-ghost` (text pill), `btn-danger` (negative outlined pill), `field` (dark pill input/select; textareas get `rounded-lg`). Use these instead of re-typing classes.
+- Shared control utilities (`@utility` in `index.css`): `btn-primary` (green pill, black uppercase label), `btn-secondary` (outlined pill), `btn-ghost` (text pill), `btn-danger` (negative outlined pill), `field` (dark pill input/select; textareas get `rounded-lg`). Use these instead of re-typing classes. All `btn-*` utilities carry `min-h-11` (44px touch target); icon-only buttons use `size-11`.
 - Cards: `rounded-lg bg-surface`, no borders; list rows `hover:bg-surface-2`; inner dividers `border-canvas` / `divide-canvas`.
 - Errors: `rounded-lg bg-negative/10 text-negative`. Status: `bg-primary/10 text-primary`.
-- Nav: active `bg-surface-3 font-bold text-fg`, inactive `text-muted`.
+- Nav: active `bg-surface-3 font-bold text-fg`, inactive `text-muted`, links `min-h-11`. Below `md` the sidebar is a drawer opened from a top-bar hamburger (`aria-expanded`); it closes on route change, Esc, backdrop click, or its close button.
+- Destructive row actions: `Delete` (`btn-danger`) swaps to `InlineConfirm` (prompt + Confirm/Cancel, pending label); errors render under the row with `role="alert"`.
+- Chat (`/chat`, `/chat/:chatId`): the chat id lives in the URL and history reloads from the server. Message list is `role="log" aria-live="polite"`; a failed turn shows a `role="alert"` with Retry after the last message (409 → "Still answering your previous message"). Once a chat exists the pickers become a chip `<collection | Agent chooses> · <model>` (title "Start a new chat to change"); "New chat" is always shown and cancels a pending answer. Default collection is "Let the agent choose". Suggestions fill the input, they don't send.
 - Page titles `text-2xl font-bold`; section titles `text-base font-bold`.
 - Max content width: mostly `max-w-3xl` (chat, forms); wide screens `max-w-4xl`.
 
@@ -38,10 +40,10 @@ Add new tokens only in `@theme` in `index.css`, and update this table with them.
 
 | Area | Components | Path |
 |---|---|---|
-| Common | `Layout`, `ProtectedRoute` | `src/components/` |
-| Chat | `ChatInput`, `MessageBubble` | `src/components/chat/` |
+| Common | `Layout`, `ProtectedRoute`, `InlineConfirm` | `src/components/` |
+| Chat | `ChatInput` (`aria-label="Message"`, Enter/Shift+Enter hint, IME-safe Enter, `field-sizing-content` auto-grow to `max-h-40`), `MessageBubble` (citations labelled Web / Your documents, links only via `safeHttpUrl`), `ThinkingIndicator` (`role="status"`, elapsed seconds, slow notice after 8 s) | `src/components/chat/` |
 | Collections | `CollectionListItem`, `CreateCollectionForm`, `EditCollectionForm` | `src/components/collections/` |
-| Documents | `CollectionInfoPanel`, `DocumentRow`, `DocumentUpload`, `IngestProgress`, `StatusBadge`, `UploadZone` | `src/components/documents/` |
+| Documents | `CollectionInfoPanel`, `DocumentRow`, `DocumentUpload`, `IngestProgress` (one per upload, `role="status"` + `role="progressbar"`), `UploadZone` (.md/.markdown/.txt, 5 MB cap from `lib/config.ts`) | `src/components/documents/` |
 
 Buttons and inputs share the CSS utilities above (no React wrapper yet). When a style repeats in 2+ places, extract a utility or shared component (`frontend-developer`, design check by `ux-designer`).
 

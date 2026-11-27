@@ -31,7 +31,8 @@
 | GET | `/collections/{name}/documents/{document_id}/chunks` | ✔ | – | `DocumentChunksResponse` | 404 |
 | DELETE | `/collections/{name}/documents/{document_id}` | ✔ | – | 204 | 404 |
 | POST | `/chats` | ✔ | `CreateChatRequest` (`chat_model`, `collection_name?`) | 201 `ChatResponse` | 400 unsupported model, 400 collection missing |
-| POST | `/chats/{chat_id}/messages` | ✔ | `SendChatMessageRequest` (`query` 1–4000 chars) | `ChatMessageResponse` (`content`, `citations[]`) | 403 someone else's chat, 404 |
+| POST | `/chats/{chat_id}/messages` | ✔ | `SendChatMessageRequest` (`query` 1–4000 chars) | `ChatMessageResponse` (`content`, `citations[]`) | 403 someone else's chat, 404, 409 another turn of this chat is in progress (`ChatTurnInProgressError`). A failed turn stores nothing (D-016), so the client can resend. |
+| GET | `/chats/{chat_id}/messages` | ✔ | – | `ChatHistoryResponse` (`chat_model`, `collection_name`, `messages[]`: `role`, `content`, `citations[]` (empty for user rows), `created_at`; oldest first) | 403 someone else's chat, 404 |
 | GET | `/usage/stats` | ✔ | – | `UsageStatsResponse` | 401 |
 
 Outside `/api`: health check `/health` and `/`, and Prometheus `/metrics` (root path, unauthenticated, not proxied by nginx; KI-020). These are excluded from the API call log and the uvicorn access log unless `LOG_INFRA_ENDPOINTS=true`.
@@ -48,6 +49,7 @@ Outside `/api`: health check `/health` and `/`, and Prometheus `/metrics` (root 
 | `CollectionAlreadyExistsError` | 409 |
 | `ChatNotFoundError` | 404 |
 | `ChatAccessDeniedError` | 403 |
+| `ChatTurnInProgressError` | 409 |
 | `UnsupportedChatModelError` | 400 |
 | Any other unhandled exception | 500 |
 
