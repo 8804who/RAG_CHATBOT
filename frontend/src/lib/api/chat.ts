@@ -1,21 +1,49 @@
+import { uid } from '../id'
 import type {
+  ChatHistory,
+  ChatHistoryResponse,
   ChatMessage,
   ChatMessageResponse,
   ChatResponse,
+  Citation,
+  CitationResponse,
   CreateChatRequest,
 } from '../types'
 import { apiFetch } from './client'
 
-const uid = () => Math.random().toString(36).slice(2, 10)
+function toCitation(c: CitationResponse): Citation {
+  return {
+    sourceType: c.source_type,
+    title: c.title,
+    snippet: c.snippet,
+    documentId: c.document_id,
+    chunkId: c.chunk_id,
+    collectionName: c.collection_name,
+    url: c.url,
+  }
+}
 
-// The /chats routes exist on the backend, so there is no mock branch (unlike
-// the previous placeholder implementation).
+/**
+ * Stable key for the message at `index` of a chat. History is append-only and
+ * oldest first, so a refetch keeps every key (no remount, no scroll jump).
+ */
+export function chatMessageId(chatId: string, index: number): string {
+  return `${chatId}-${index}`
+}
+
+function chatPath(chatId: string): string {
+  return `/api/v1/chats/${encodeURIComponent(chatId)}/messages`
+}
 
 /** Start a new chat, pinning a generation model (and optionally a collection) for its lifetime. */
-export async function createChat(request: CreateChatRequest): Promise<ChatResponse> {
+export async function createChat(
+  request: CreateChatRequest,
+  signal?: AbortSignal,
+): Promise<ChatResponse> {
   return apiFetch<ChatResponse>('/api/v1/chats', {
     method: 'POST',
     body: JSON.stringify(request),
+    signal,
   })
 }
 
@@ -23,27 +51,34 @@ export async function createChat(request: CreateChatRequest): Promise<ChatRespon
 export async function sendMessage(
   chatId: string,
   query: string,
+  signal?: AbortSignal,
 ): Promise<ChatMessage> {
-  const res = await apiFetch<ChatMessageResponse>(
-    `/api/v1/chats/${encodeURIComponent(chatId)}/messages`,
-    {
-      method: 'POST',
-      body: JSON.stringify({ query }),
-    },
-  )
+  const res = await apiFetch<ChatMessageResponse>(chatPath(chatId), {
+    method: 'POST',
+    body: JSON.stringify({ query }),
+    signal,
+  })
   return {
     id: uid(),
     role: res.role,
     content: res.content,
-    citations: res.citations.map((c) => ({
-      sourceType: c.source_type,
-      title: c.title,
-      snippet: c.snippet,
-      documentId: c.document_id,
-      chunkId: c.chunk_id,
-      collectionName: c.collection_name,
-      url: c.url,
-    })),
+    citations: res.citations.map(toCitation),
     createdAt: new Date().toISOString(),
+  }
+}
+
+/** Load a chat's pinned model/collection and stored messages (oldest first). */
+export async function getChatHistory(chatId: string): Promise<ChatHistory> {
+  const res = await apiFetch<ChatHistoryResponse>(chatPath(chatId))
+  return {
+    chatModel: res.chat_model,
+    collectionName: res.collection_name,
+    messages: res.messages.map((m, i) => ({
+      id: chatMessageId(chatId, i),
+      role: m.role,
+      content: m.content,
+      citations: m.citations.map(toCitation),
+      createdAt: m.created_at,
+    })),
   }
 }

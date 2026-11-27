@@ -2,8 +2,7 @@
 // dev via the Vite proxy (see vite.config.ts) and in prod when served together.
 export const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
-// When true (default), chat and document calls return in-memory mock data so the
-// app runs standalone. Flip to "false" once the backend implements those routes.
-export const USE_MOCKS = (import.meta.env.VITE_USE_MOCKS ?? 'true') !== 'false'
-
-export const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
+// Document upload: text-only (files are read as text and sent as JSON), with a
+// client-side size cap so a huge file fails fast instead of mid-request.
+export const UPLOAD_EXTENSIONS = ['.md', '.markdown', '.txt']
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024

@@ -5,17 +5,6 @@ export interface User {
   picture: string | null
 }
 
-export type DocumentStatus = 'processing' | 'ready' | 'failed'
-
-export interface RagDocument {
-  id: string
-  name: string
-  sizeBytes: number
-  status: DocumentStatus
-  chunkCount: number
-  createdAt: string
-}
-
 export type CitationSourceType = 'document' | 'web'
 
 export interface Citation {
@@ -92,6 +81,28 @@ export interface ChatMessageResponse {
   role: MessageRole
   content: string
   citations: CitationResponse[]
+}
+
+// GET /chats/{id}/messages: restores a chat on reload (pinned model/collection
+// + stored turns, oldest first; user rows have empty citations).
+export interface ChatHistoryMessageResponse {
+  role: MessageRole
+  content: string
+  citations: CitationResponse[]
+  created_at: string
+}
+
+export interface ChatHistoryResponse {
+  chat_model: string
+  collection_name: string | null
+  messages: ChatHistoryMessageResponse[]
+}
+
+/** ChatHistoryResponse mapped for the UI (client ids, camelCase citations). */
+export interface ChatHistory {
+  chatModel: string
+  collectionName: string | null
+  messages: ChatMessage[]
 }
 
 // Token usage stats (GET /usage/stats), grouped by model, with cost computed

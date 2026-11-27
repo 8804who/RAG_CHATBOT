@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import {
   createContext,
   useCallback,
@@ -19,7 +20,12 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode
+}): React.JSX.Element {
+  const queryClient = useQueryClient()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -34,10 +40,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await getCurrentUser())
   }, [])
 
+  // Clear every cached query so the next user in this tab never sees the
+  // previous user's data, even if the logout request itself failed.
   const logout = useCallback(async () => {
-    await apiLogout()
-    setUser(null)
-  }, [])
+    try {
+      await apiLogout()
+    } finally {
+      queryClient.clear()
+      setUser(null)
+    }
+  }, [queryClient])
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>

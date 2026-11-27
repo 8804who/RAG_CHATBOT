@@ -1,30 +1,13 @@
 import { useState } from 'react'
 
-import CollectionInfoPanel from '../components/documents/CollectionInfoPanel'
-import DocumentRow from '../components/documents/DocumentRow'
-import DocumentUpload from '../components/documents/DocumentUpload'
-import IngestProgress from '../components/documents/IngestProgress'
+import { CollectionInfoPanel } from '../components/documents/CollectionInfoPanel'
+import { DocumentRow } from '../components/documents/DocumentRow'
+import { DocumentUpload } from '../components/documents/DocumentUpload'
+import { IngestProgress } from '../components/documents/IngestProgress'
 import { useCollection, useCollections } from '../hooks/useCollections'
-import {
-  useDeleteDocument,
-  useDocuments,
-  useDocumentStatus,
-  useIngestDocument,
-} from '../hooks/useDocuments'
-import { ApiError } from '../lib/api/client'
+import { useDocumentUploads, useDocuments } from '../hooks/useDocuments'
 
-function ingestErrorMessage(error: unknown): string | null {
-  if (!error) return null
-  if (error instanceof ApiError) {
-    if (error.status === 400)
-      return 'This collection has no pinned embedding model, or the document was empty.'
-    if (error.status === 404) return 'Collection not found.'
-    return `Could not embed document (error ${error.status}).`
-  }
-  return 'Could not embed document.'
-}
-
-export default function DocumentsPage() {
+export function DocumentsPage(): React.JSX.Element {
   const { data: collections } = useCollections()
   // Explicit user choice overrides the default; otherwise fall back to the first
   // collection. Derived during render so no setState-in-effect is needed.
@@ -33,18 +16,7 @@ export default function DocumentsPage() {
 
   const { data: detail, isLoading: detailLoading } = useCollection(selected)
   const { data: documents, isLoading: docsLoading } = useDocuments(selected)
-  const ingest = useIngestDocument(selected)
-  const remove = useDeleteDocument(selected)
-  // Poll the async ingest progress of the most recently uploaded document.
-  const { data: ingestStatus } = useDocumentStatus(
-    selected,
-    ingest.data?.document_id ?? null,
-  )
-
-  function handleIngest(filename: string, content: string): void {
-    if (!selected) return
-    ingest.mutate({ filename, content })
-  }
+  const { uploads, upload, uploading } = useDocumentUploads(selected)
 
   const hasCollections = collections && collections.length > 0
 
@@ -91,19 +63,20 @@ export default function DocumentsPage() {
               <CollectionInfoPanel detail={detail} isLoading={detailLoading} />
 
               <DocumentUpload
-                onIngest={handleIngest}
-                busy={ingest.isPending}
-                disabled={!selected}
+                onIngest={(filename, content) => void upload(filename, content)}
+                busy={uploading}
               />
 
-              {ingest.isError && (
-                <p className="rounded-lg bg-negative/10 px-3 py-2 text-sm text-negative">
-                  {ingestErrorMessage(ingest.error)}
-                </p>
-              )}
-
-              {ingestStatus && ingestStatus.status !== 'INDEXED' && (
-                <IngestProgress status={ingestStatus} />
+              {uploads.length > 0 && (
+                <ul className="space-y-2" aria-label="Uploads">
+                  {uploads.map((item) => (
+                    <IngestProgress
+                      key={item.id}
+                      collection={selected}
+                      upload={item}
+                    />
+                  ))}
+                </ul>
               )}
 
               <div className="overflow-hidden rounded-lg bg-surface">
@@ -134,8 +107,6 @@ export default function DocumentsPage() {
                         key={document.document_id}
                         collection={selected}
                         document={document}
-                        onDelete={(id) => remove.mutate(id)}
-                        deleting={remove.isPending}
                       />
                     ))}
                   </ul>

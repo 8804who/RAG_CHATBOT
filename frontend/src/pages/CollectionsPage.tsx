@@ -1,5 +1,5 @@
 import { CollectionListItem } from '../components/collections/CollectionListItem'
-import CreateCollectionForm from '../components/collections/CreateCollectionForm'
+import { CreateCollectionForm } from '../components/collections/CreateCollectionForm'
 import { useCollections, useCreateCollection } from '../hooks/useCollections'
 import { ApiError } from '../lib/api/client'
 import type { CreateCollectionRequest } from '../lib/types'
@@ -9,16 +9,16 @@ function createErrorMessage(error: unknown): string | null {
   if (error instanceof ApiError) {
     if (error.status === 409) return 'A collection with that name already exists.'
     if (error.status === 422) return 'Invalid collection settings. Check the dimension.'
-    return `Could not create collection (error ${error.status}).`
+    return `Could not create collection (${error.message}).`
   }
   return 'Could not create collection.'
 }
 
-export default function CollectionsPage() {
+export function CollectionsPage(): React.JSX.Element {
   const { data: collections, isLoading, isError } = useCollections()
   const create = useCreateCollection()
 
-  function handleCreate(request: CreateCollectionRequest) {
+  function handleCreate(request: CreateCollectionRequest): void {
     create.mutate(request)
   }
 

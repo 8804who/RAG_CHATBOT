@@ -5,7 +5,7 @@ interface CollectionInfoPanelProps {
   isLoading: boolean
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
     <div className="rounded-md bg-surface-2 px-3 py-2.5">
       <p className="text-xs text-muted">{label}</p>
@@ -14,10 +14,10 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
-export default function CollectionInfoPanel({
+export function CollectionInfoPanel({
   detail,
   isLoading,
-}: CollectionInfoPanelProps) {
+}: CollectionInfoPanelProps): React.JSX.Element {
   if (isLoading || !detail) {
     return (
       <div className="rounded-lg bg-surface p-6">
