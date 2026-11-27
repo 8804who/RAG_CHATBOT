@@ -1,19 +1,59 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  type UseMutationResult,
+  type UseQueryResult,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import {
   chatMessageId,
   createChat,
+  deleteChat,
   getChatHistory,
+  listChats,
   sendMessage,
 } from '../lib/api/chat'
 import { ApiError } from '../lib/api/client'
 import { uid } from '../lib/id'
-import type { ChatHistory, ChatMessage } from '../lib/types'
+import type { ChatHistory, ChatMessage, ChatSummary } from '../lib/types'
 
 function chatKey(chatId: string): string[] {
   return ['chats', chatId, 'messages']
+}
+
+// Never a prefix of chatKey (chat ids are UUIDs), so invalidating a chat's
+// messages leaves the list alone and vice versa.
+const CHAT_LIST_KEY = ['chats', 'list']
+
+export function useChatList(): UseQueryResult<ChatSummary[]> {
+  return useQuery({ queryKey: CHAT_LIST_KEY, queryFn: listChats })
+}
+
+// onActiveDeleted runs before the deleted chat's cache is dropped, in the same
+// tick, so the open page never refetches (and 404s) the chat it is leaving.
+// The active id is read at success time: navigating elsewhere mid-delete must
+// not reset the chat now on screen.
+export function useDeleteChat(
+  activeChatId: string | null,
+  onActiveDeleted: () => void,
+): UseMutationResult<void, Error, string> {
+  const qc = useQueryClient()
+  const activeRef = useRef(activeChatId)
+  useEffect(() => {
+    activeRef.current = activeChatId
+  }, [activeChatId])
+  return useMutation({
+    mutationFn: deleteChat,
+    onSuccess: (_, id) => {
+      if (id === activeRef.current) onActiveDeleted()
+      qc.removeQueries({ queryKey: chatKey(id), exact: true })
+    },
+    // A 404 means it is already gone: refresh either way.
+    onSettled: () => qc.invalidateQueries({ queryKey: CHAT_LIST_KEY }),
+  })
 }
 
 interface UseChatOptions {
@@ -139,6 +179,7 @@ export function useChat({
         inflight.chatId = created
         setTurn((t) => (t?.id === next.id ? { ...t, chatId: created } : t))
         navigate(`/chat/${encodeURIComponent(id)}`, { replace: true })
+        void qc.invalidateQueries({ queryKey: CHAT_LIST_KEY })
       }
       const answer = await sendMessage(id, next.text, controller.signal)
       const target = id
@@ -159,6 +200,8 @@ export function useChat({
         }
       })
       setTurn((t) => (t?.id === next.id ? null : t))
+      // New title / order.
+      void qc.invalidateQueries({ queryKey: CHAT_LIST_KEY })
     } catch (err) {
       if (controller.signal.aborted) return
       const error = err instanceof Error ? err : new Error(String(err))

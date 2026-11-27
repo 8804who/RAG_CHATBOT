@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Coroutine
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from typing import Any
 
 from langchain.agents import create_agent
@@ -26,7 +26,10 @@ from core.constants import (
     AGENT_SYSTEM_PROMPT,
     CHAT_SUMMARY_KEEP_MESSAGES,
     CHAT_SUMMARY_MODEL,
+    CHAT_LIST_LIMIT,
     CHAT_SUMMARY_TRIGGER_TOKENS,
+    CHAT_TITLE_ELLIPSIS,
+    CHAT_TITLE_MAX_LENGTH,
     CHAT_TURN_LOCK_KEY_PREFIX,
     CHAT_TURN_LOCK_TTL_SECONDS,
     CHAT_TURN_TIMEOUT_SECONDS,
@@ -39,7 +42,13 @@ from exceptions.chat import (
 from exceptions.document import CollectionMetaNotFoundError
 from models import Chat, User
 from repositories import ChatRepository, CollectionMetadataRepository, LogRepository
-from schemes.dto.chat import ChatHistory, ChatTurnResult, Citation, TurnUsage
+from schemes.dto.chat import (
+    ChatHistory,
+    ChatSummary,
+    ChatTurnResult,
+    Citation,
+    TurnUsage,
+)
 from services.agent.tools import (
     ARXIV_SEARCH_TOOL_NAME,
     RETRIEVAL_TOOL_NAME,
@@ -170,13 +179,60 @@ class AgentChatOrchestrator:
             messages=messages,
         )
 
+    async def list_chats(
+        self, db: AsyncSession, *, requester: User
+    ) -> list[ChatSummary]:
+        """
+        요청자 소유 채팅 목록 조회(최근 활동순, 최대 CHAT_LIST_LIMIT개)
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            requester(User): 요청 사용자(소유자 필터)
+
+        Returns:
+            list[ChatSummary]: 채팅 요약 목록(제목은 상한 초과 시 말줄임)
+        """
+        chats = await self._chats.list_chats(
+            db, owner_id=requester.id, limit=CHAT_LIST_LIMIT
+        )
+        return [replace(chat, title=_truncate_title(chat.title)) for chat in chats]
+
+    async def delete_chat(
+        self, db: AsyncSession, *, chat_id: str, requester: User
+    ) -> None:
+        """
+        채팅 삭제(소유권 검증 → 턴 잠금 → 존재 재확인 → 체크포인트 스레드 삭제 → chats 행 삭제 → 잠금 해제)
+
+        진행 중인 턴과 겹치지 않도록 send_message와 같은 잠금을 잡는다. 스레드를 먼저
+        지워, 중간에 실패해도 chats 행이 남아 같은 요청으로 끝까지 재시도할 수 있다.
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            chat_id(str): 삭제할 채팅 id
+            requester(User): 요청 사용자(소유권 검증용)
+        """
+        await self._get_owned_chat(db, chat_id, requester, "delete_chat")
+        # 조회 트랜잭션이 Redis·체크포인트 호출 동안 커넥션을 붙잡지 않도록 종료
+        await db.commit()
+
+        lock_key = await self._acquire_turn_lock(chat_id, requester, "delete_chat")
+        try:
+            # 잠금 대기 중 다른 삭제가 끝났을 수 있으므로 잠금 안에서 재확인(404)
+            await self._get_owned_chat(db, chat_id, requester, "delete_chat")
+            await db.commit()
+            await self._checkpointer.adelete_thread(chat_id)
+            await self._chats.delete_chat(db, chat_id)
+        finally:
+            await self._redis.delete(lock_key)
+        logger.info("채팅 삭제 완료: chat_id=%s, owner_id=%s", chat_id, requester.id)
+
     async def send_message(
         self, db: AsyncSession, *, chat_id: str, query: str, requester: User
     ) -> ChatTurnResult:
         """
         한 사용자 질의에 대한 답변을 에이전트로 생성한다
 
-        (소유권 검증 → 채팅 잠금 → 에이전트 실행(실패 시 스레드 롤백) →
+        (소유권 검증 → 채팅 잠금 → 존재 재확인 → 에이전트 실행(실패 시 스레드 롤백) →
         성공 턴만 메시지·사용량 영속화 → 체크포인트 정리 → 잠금 해제)
 
         Parameters:
@@ -193,22 +249,41 @@ class AgentChatOrchestrator:
         # 읽기 트랜잭션을 여기서 끝낸다(expire_on_commit=False라 객체는 그대로 사용).
         await db.commit()
 
-        lock_key = f"{CHAT_TURN_LOCK_KEY_PREFIX}{chat_id}"
-        if not await self._redis.set_if_absent(
-            lock_key, str(requester.id), ex=CHAT_TURN_LOCK_TTL_SECONDS
-        ):
-            logger.warning("채팅 턴 중복 요청: chat_id=%s", chat_id)
-            raise ChatTurnInProgressError(
-                message=ChatTurnInProgressError.response_message,
-                code_path="agent_chat_orchestrator-send_message-error",
-            )
-
+        lock_key = await self._acquire_turn_lock(chat_id, requester, "send_message")
         try:
+            # 잠금 대기 중 채팅이 삭제됐다면 LLM 턴 대신 404(FK 위반 500 방지)
+            chat = await self._get_owned_chat(db, chat_id, requester, "send_message")
+            await db.commit()
             return await self._run_turn(db, chat, query, requester)
         finally:
             # ponytail: 소유 토큰 비교 없이 삭제. 턴 상한(asyncio.timeout) < TTL이라
             # 실행 중 만료돼 남의 잠금을 지울 일은 없다.
             await self._redis.delete(lock_key)
+
+    async def _acquire_turn_lock(
+        self, chat_id: str, requester: User, action: str
+    ) -> str:
+        """
+        채팅별 턴 잠금 획득(이미 잡혀 있으면 409)
+
+        Parameters:
+            chat_id(str): 채팅 id
+            requester(User): 요청 사용자(잠금 값)
+            action(str): code_path에 남길 호출 함수명
+
+        Returns:
+            str: 획득한 잠금 키(finally에서 해제용)
+        """
+        lock_key = f"{CHAT_TURN_LOCK_KEY_PREFIX}{chat_id}"
+        if not await self._redis.set_if_absent(
+            lock_key, str(requester.id), ex=CHAT_TURN_LOCK_TTL_SECONDS
+        ):
+            logger.warning("채팅 턴 중복 요청: chat_id=%s, action=%s", chat_id, action)
+            raise ChatTurnInProgressError(
+                message=ChatTurnInProgressError.response_message,
+                code_path=f"agent_chat_orchestrator-{action}-error",
+            )
+        return lock_key
 
     async def _get_owned_chat(
         self, db: AsyncSession, chat_id: str, requester: User, action: str
@@ -462,6 +537,21 @@ class AgentChatOrchestrator:
             await self._checkpointer.aprune([chat_id], strategy="keep_latest")
         except Exception:
             logger.warning("체크포인트 정리 실패: chat_id=%s", chat_id, exc_info=True)
+
+
+def _truncate_title(title: str | None) -> str | None:
+    """
+    채팅 제목 말줄임(상한 초과 시 상한 글자 + "…")
+
+    Parameters:
+        title(str | None): 공백 정규화된 첫 사용자 질문 미리보기
+
+    Returns:
+        str | None: 표시용 제목(메시지 없으면 None)
+    """
+    if title is None or len(title) <= CHAT_TITLE_MAX_LENGTH:
+        return title
+    return title[:CHAT_TITLE_MAX_LENGTH] + CHAT_TITLE_ELLIPSIS
 
 
 async def _shielded(coroutine: Coroutine[Any, Any, None]) -> None:

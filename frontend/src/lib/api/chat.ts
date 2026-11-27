@@ -2,11 +2,13 @@ import { uid } from '../id'
 import type {
   ChatHistory,
   ChatHistoryResponse,
+  ChatListResponse,
   ChatMessage,
   ChatMessageResponse,
   ChatResponse,
   Citation,
   CitationResponse,
+  ChatSummary,
   CreateChatRequest,
 } from '../types'
 import { apiFetch } from './client'
@@ -81,4 +83,24 @@ export async function getChatHistory(chatId: string): Promise<ChatHistory> {
       createdAt: m.created_at,
     })),
   }
+}
+
+/** List the user's chats, newest activity first. */
+export async function listChats(): Promise<ChatSummary[]> {
+  const res = await apiFetch<ChatListResponse>('/api/v1/chats')
+  return res.chats.map((c) => ({
+    id: c.id,
+    title: c.title,
+    chatModel: c.chat_model,
+    collectionName: c.collection_name,
+    createdAt: c.created_at,
+    lastMessageAt: c.last_message_at,
+  }))
+}
+
+/** Delete a chat and its messages (409 while one of its turns is running). */
+export async function deleteChat(chatId: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/chats/${encodeURIComponent(chatId)}`, {
+    method: 'DELETE',
+  })
 }

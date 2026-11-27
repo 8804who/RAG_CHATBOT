@@ -1,9 +1,15 @@
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
+from core.constants import CHAT_TITLE_MAX_LENGTH
 from models import Chat, ChatMessage, ChatMessageRole
+from schemes.dto.chat import ChatSummary
+
+# 제목 잘림 여부를 서비스가 판단할 수 있도록 상한보다 1글자 더 가져온다.
+_TITLE_PREVIEW_LENGTH = CHAT_TITLE_MAX_LENGTH + 1
 
 
 class ChatRepository:
@@ -115,3 +121,81 @@ class ChatRepository:
         )
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
+    async def list_chats(
+        self, db: AsyncSession, *, owner_id: int, limit: int
+    ) -> list[ChatSummary]:
+        """
+        소유자의 채팅 목록 조회(최근 활동순, 한 문장으로 N+1 없이)
+
+        마지막 메시지 시각은 LATERAL MAX 집계로, 제목은 첫 사용자 메시지(created_at, id
+        오름차순)를 공백 정규화해 상한+1 글자만 가져오는 상관 서브쿼리로 구한다.
+        둘 다 ix_chat_messages_chat_id_created_at 인덱스를 탄다.
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            owner_id(int): 채팅 소유자 user id
+            limit(int): 최대 반환 개수
+
+        Returns:
+            list[ChatSummary]: 채팅 요약 목록(title은 공백 정규화된 미리보기)
+        """
+        last_message = (
+            select(func.max(ChatMessage.created_at).label("last_message_at"))
+            .where(ChatMessage.chat_id == Chat.id)
+            .lateral()
+        )
+        first_message = aliased(ChatMessage)
+        normalized_content = func.btrim(
+            func.regexp_replace(first_message.content, r"\s+", " ", "g")
+        )
+        title_preview = (
+            select(func.left(normalized_content, _TITLE_PREVIEW_LENGTH))
+            .where(
+                first_message.chat_id == Chat.id,
+                first_message.role == ChatMessageRole.USER.value,
+            )
+            .order_by(first_message.created_at, first_message.id)
+            .limit(1)
+            .scalar_subquery()
+        )
+        stmt = (
+            select(
+                Chat.id,
+                title_preview.label("title"),
+                Chat.chat_model,
+                Chat.collection_name,
+                Chat.created_at,
+                last_message.c.last_message_at,
+            )
+            .join(last_message, true())
+            .where(Chat.owner_id == owner_id)
+            .order_by(
+                func.coalesce(last_message.c.last_message_at, Chat.created_at).desc(),
+                Chat.id,
+            )
+            .limit(limit)
+        )
+        result = await db.execute(stmt)
+        return [
+            ChatSummary(
+                id=row.id,
+                title=row.title,
+                chat_model=row.chat_model,
+                collection_name=row.collection_name,
+                created_at=row.created_at,
+                last_message_at=row.last_message_at,
+            )
+            for row in result.all()
+        ]
+
+    async def delete_chat(self, db: AsyncSession, chat_id: str) -> None:
+        """
+        채팅 삭제(chat_messages는 FK ON DELETE CASCADE로 함께 삭제)
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            chat_id(str): 삭제할 채팅 id
+        """
+        await db.execute(delete(Chat).where(Chat.id == chat_id))
+        await db.commit()

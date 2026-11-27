@@ -31,6 +31,8 @@
 | GET | `/collections/{name}/documents/{document_id}/chunks` | ✔ | – | `DocumentChunksResponse` | 404 |
 | DELETE | `/collections/{name}/documents/{document_id}` | ✔ | – | 204 | 404 |
 | POST | `/chats` | ✔ | `CreateChatRequest` (`chat_model`, `collection_name?`) | 201 `ChatResponse` | 400 unsupported model, 400 collection missing |
+| GET | `/chats` | ✔ | – | `ChatListResponse` (`chats[]`: `id`, `title` (first user message, whitespace-collapsed, > 60 chars → 60 + "…"; null if no messages), `chat_model`, `collection_name`, `created_at`, `last_message_at` (null if no messages)). Caller's chats only, ordered by `COALESCE(last_message_at, created_at)` DESC, `id`; max 100, no pagination. | 401 |
+| DELETE | `/chats/{chat_id}` | ✔ | – | 204. Deletes the chat, its messages (cascade) and its agent checkpoint thread. Usage/tool-call logs are kept. | 403 someone else's chat, 404, 409 a turn of this chat is in progress (`ChatTurnInProgressError`) |
 | POST | `/chats/{chat_id}/messages` | ✔ | `SendChatMessageRequest` (`query` 1–4000 chars) | `ChatMessageResponse` (`content`, `citations[]`) | 403 someone else's chat, 404, 409 another turn of this chat is in progress (`ChatTurnInProgressError`). A failed turn stores nothing (D-016), so the client can resend. |
 | GET | `/chats/{chat_id}/messages` | ✔ | – | `ChatHistoryResponse` (`chat_model`, `collection_name`, `messages[]`: `role`, `content`, `citations[]` (empty for user rows), `created_at`; oldest first) | 403 someone else's chat, 404 |
 | GET | `/usage/stats` | ✔ | – | `UsageStatsResponse` | 401 |

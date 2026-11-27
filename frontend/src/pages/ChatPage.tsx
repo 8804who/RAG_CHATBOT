@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { flushSync } from 'react-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 
 import { ChatInput } from '../components/chat/ChatInput'
+import { ChatListPanel } from '../components/chat/ChatListPanel'
 import { MessageBubble } from '../components/chat/MessageBubble'
 import { ThinkingIndicator } from '../components/chat/ThinkingIndicator'
 import { useChat } from '../hooks/useChat'
@@ -41,6 +43,13 @@ function isUnavailable(err: Error | null): boolean {
 
 export function ChatPage(): React.JSX.Element {
   const { chatId = null } = useParams()
+  const { pathname } = useLocation()
+  // Below lg the chat list is an overlay, open only for the path it was opened
+  // on, so picking a chat (a route change) closes it without an effect.
+  const [listOpenOnPath, setListOpenOnPath] = useState<string | null>(null)
+  const listOpen = listOpenOnPath === pathname
+  const listButtonRef = useRef<HTMLButtonElement>(null)
+  const listCloseRef = useRef<HTMLButtonElement>(null)
   const collectionsQuery = useCollections()
   const collections = collectionsQuery.data
   const { data: chatModels, isLoading: chatModelsLoading } = useChatModels()
@@ -79,6 +88,28 @@ export function ChatPage(): React.JSX.Element {
   const canSend = chatId ? history !== undefined : chatModel !== ''
   const lockedCollection = chatId ? history?.collectionName : collectionName
   const lockedModel = chatId ? history?.chatModel : chatModel
+
+  // Same overlay pattern as Layout's drawer: focus in on open, Escape closes.
+  useEffect(() => {
+    if (!listOpen) return
+    listCloseRef.current?.focus()
+    function handleKeyDown(e: KeyboardEvent): void {
+      if (e.key === 'Escape') closeList()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [listOpen])
+
+  // Focus goes back to the Chats button (a no-op at lg+, where it is hidden).
+  function closeList(): void {
+    flushSync(() => setListOpenOnPath(null))
+    listButtonRef.current?.focus()
+  }
+
+  function startNewChat(): void {
+    closeList()
+    chat.reset()
+  }
 
   function renderBody(): React.JSX.Element {
     if (unavailable) {
@@ -179,83 +210,124 @@ export function ChatPage(): React.JSX.Element {
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-2 px-6 py-4">
-        <h1 className="text-2xl font-bold">Chat</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {pickersLocked ? (
-            !unavailable && (
-              <span
-                title="Start a new chat to change"
-                className="rounded-full bg-surface-4 px-3 py-1.5 text-xs text-soft"
-              >
-                {lockedModel === undefined
-                  ? 'Loading…'
-                  : `${lockedCollection ?? 'Agent chooses'} · ${lockedModel}`}
-              </span>
-            )
-          ) : (
-            <>
-              <select
-                aria-label="Collection"
-                value={collectionName ?? AGENT_CHOOSES_COLLECTION}
-                onChange={(e) => setCollectionOverride(e.target.value)}
-                disabled={collectionsQuery.isLoading}
-                className="field w-auto"
-              >
-                <option value={AGENT_CHOOSES_COLLECTION}>Let the agent choose</option>
-                {collections?.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Chat model"
-                value={chatModel}
-                onChange={(e) => setChatModelOverride(e.target.value)}
-                disabled={chatModelsLoading || !chatModels?.length}
-                className="field w-auto"
-              >
-                {chatModelsLoading ? (
-                  <option value="">Loading models…</option>
-                ) : !chatModels?.length ? (
-                  <option value="">No models</option>
-                ) : (
-                  chatModels.map((m) => (
-                    <option key={m.name} value={m.name}>
-                      {m.name}
-                    </option>
-                  ))
-                )}
-              </select>
-            </>
-          )}
-          <button type="button" onClick={chat.reset} className="btn-ghost">
-            New chat
+    <div className="relative flex h-full">
+      <aside
+        id="chat-list"
+        role={listOpen ? 'dialog' : undefined}
+        aria-modal={listOpen || undefined}
+        aria-label={listOpen ? 'Chats' : undefined}
+        className={`${listOpen ? 'flex' : 'hidden'} absolute inset-0 z-20 flex-col bg-surface lg:static lg:flex lg:w-64 lg:shrink-0 lg:border-r lg:border-surface-2`}
+      >
+        <div className="flex items-center justify-between px-4 pt-3 lg:hidden">
+          <h2 className="text-lg font-bold">Chats</h2>
+          <button
+            ref={listCloseRef}
+            type="button"
+            onClick={closeList}
+            aria-label="Close chat list"
+            className="grid size-11 place-items-center rounded-full text-muted transition hover:bg-surface-3 hover:text-fg focus-visible:outline-2 focus-visible:outline-fg"
+          >
+            <span aria-hidden>✕</span>
           </button>
         </div>
-      </header>
-
-      <div
-        role="log"
-        aria-live="polite"
-        aria-label="Conversation"
-        className="flex-1 overflow-y-auto px-6 py-6"
-      >
-        {renderBody()}
-      </div>
-
-      {/* A forbidden/missing chat offers only New chat, no input. */}
-      {!unavailable && (
-        <ChatInput
-          key={draft.key}
-          initialValue={draft.text}
-          failedTurn={chat.failedTurn}
-          onSend={chat.send}
-          disabled={isThinking || !canSend}
+        <ChatListPanel
+          activeChatId={chatId}
+          onNewChat={startNewChat}
+          onSelect={closeList}
         />
-      )}
+      </aside>
+
+      <div inert={listOpen} className="flex min-w-0 flex-1 flex-col">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-2 px-6 py-4">
+          <div className="flex items-center gap-2">
+            <button
+              ref={listButtonRef}
+              type="button"
+              onClick={() => setListOpenOnPath(pathname)}
+              aria-expanded={listOpen}
+              aria-controls="chat-list"
+              className="btn-ghost lg:hidden"
+            >
+              Chats
+            </button>
+            <h1 className="text-2xl font-bold">Chat</h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {pickersLocked ? (
+              !unavailable && (
+                <span
+                  title="Start a new chat to change"
+                  className="rounded-full bg-surface-4 px-3 py-1.5 text-xs text-soft"
+                >
+                  {lockedModel === undefined
+                    ? 'Loading…'
+                    : `${lockedCollection ?? 'Agent chooses'} · ${lockedModel}`}
+                </span>
+              )
+            ) : (
+              <>
+                <select
+                  aria-label="Collection"
+                  value={collectionName ?? AGENT_CHOOSES_COLLECTION}
+                  onChange={(e) => setCollectionOverride(e.target.value)}
+                  disabled={collectionsQuery.isLoading}
+                  className="field w-auto"
+                >
+                  <option value={AGENT_CHOOSES_COLLECTION}>Let the agent choose</option>
+                  {collections?.map((c) => (
+                    <option key={c.name} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label="Chat model"
+                  value={chatModel}
+                  onChange={(e) => setChatModelOverride(e.target.value)}
+                  disabled={chatModelsLoading || !chatModels?.length}
+                  className="field w-auto"
+                >
+                  {chatModelsLoading ? (
+                    <option value="">Loading models…</option>
+                  ) : !chatModels?.length ? (
+                    <option value="">No models</option>
+                  ) : (
+                    chatModels.map((m) => (
+                      <option key={m.name} value={m.name}>
+                        {m.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </>
+            )}
+            {/* lg+ has New chat in the always-visible list. */}
+            <button type="button" onClick={startNewChat} className="btn-ghost lg:hidden">
+              New chat
+            </button>
+          </div>
+        </header>
+
+        <div
+          role="log"
+          aria-live="polite"
+          aria-label="Conversation"
+          className="flex-1 overflow-y-auto px-6 py-6"
+        >
+          {renderBody()}
+        </div>
+
+        {/* A forbidden/missing chat offers only New chat, no input. */}
+        {!unavailable && (
+          <ChatInput
+            key={draft.key}
+            initialValue={draft.text}
+            failedTurn={chat.failedTurn}
+            onSend={chat.send}
+            disabled={isThinking || !canSend}
+          />
+        )}
+      </div>
     </div>
   )
 }
