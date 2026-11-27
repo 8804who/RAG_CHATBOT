@@ -35,23 +35,91 @@ def _chunk(chunk_id: str = "c1") -> RetrievedChunk:
     )
 
 
+class _SessionFactory:
+    """호출마다 새 세션(AsyncMock)을 만들어 기록하는 async_sessionmaker 대역."""
+
+    def __init__(self) -> None:
+        self.sessions: list[AsyncMock] = []
+        self.open_count = 0
+
+    def __call__(self) -> "_SessionFactory._Context":
+        session = AsyncMock()
+        self.sessions.append(session)
+        return self._Context(self, session)
+
+    class _Context:
+        def __init__(self, factory: "_SessionFactory", session: AsyncMock) -> None:
+            self._factory = factory
+            self._session = session
+
+        async def __aenter__(self) -> AsyncMock:
+            self._factory.open_count += 1
+            return self._session
+
+        async def __aexit__(self, *exc_info) -> None:
+            self._factory.open_count -= 1
+
+
 def test_build_retrieval_tool_success_with_pinned_collection():
-    # 컬렉션이 고정된 채팅은 query만 받는 단일 인자 도구가 만들어진다.
-    db = AsyncMock()
+    """
+    문서 검색 도구 생성(성공) - 컬렉션 고정 채팅
+
+    입력 데이터
+        - allowed_collection = "docs", query = "질문"
+
+    예상 출력 데이터
+        - query만 받는 도구, 결과 collection_name = "docs"
+        - 도구 호출용 새 세션으로 검색, 카탈로그 조회 없음
+    """
+    session_factory = _SessionFactory()
     retrieval_service = AsyncMock()
     retrieval_service.retrieve.return_value = [_chunk()]
     meta_repository = AsyncMock()
 
     tool = asyncio.run(
-        build_retrieval_tool(db, retrieval_service, meta_repository, "docs")
+        build_retrieval_tool(
+            session_factory, retrieval_service, meta_repository, "docs"
+        )
     )
     result = asyncio.run(tool.ainvoke({"query": "질문"}))
 
     payload = json.loads(result)
     assert payload["results"][0]["chunk_id"] == "c1"
     assert payload["results"][0]["collection_name"] == "docs"
-    retrieval_service.retrieve.assert_awaited_once_with(db, "docs", "질문")
+    retrieval_service.retrieve.assert_awaited_once_with(
+        session_factory.sessions[0], "docs", "질문"
+    )
     meta_repository.list_all.assert_not_awaited()
+
+
+def test_build_retrieval_tool_success_with_session_per_parallel_call():
+    """
+    문서 검색 도구 생성(성공) - 병렬 도구 호출마다 독립 세션 사용
+
+    입력 데이터
+        - 같은 도구를 asyncio.gather로 동시에 2회 호출
+
+    예상 출력 데이터
+        - 호출마다 서로 다른 세션으로 검색, 호출 종료 후 열린 세션 0개
+    """
+    session_factory = _SessionFactory()
+    retrieval_service = AsyncMock()
+    retrieval_service.retrieve.return_value = [_chunk()]
+
+    async def run() -> None:
+        tool = await build_retrieval_tool(
+            session_factory, retrieval_service, AsyncMock(), "docs"
+        )
+        await asyncio.gather(tool.ainvoke({"query": "a"}), tool.ainvoke({"query": "b"}))
+
+    asyncio.run(run())
+
+    used_sessions = [
+        call.args[0] for call in retrieval_service.retrieve.await_args_list
+    ]
+    assert len(used_sessions) == 2
+    assert used_sessions[0] is not used_sessions[1]
+    assert session_factory.open_count == 0
 
 
 def test_build_retrieval_tool_success_with_routed_collection():
@@ -63,8 +131,10 @@ def test_build_retrieval_tool_success_with_routed_collection():
     meta = MagicMock(collection_name="docs", description="문서 모음")
     meta_repository.list_all.return_value = [meta]
 
+    session_factory = _SessionFactory()
+
     tool = asyncio.run(
-        build_retrieval_tool(AsyncMock(), retrieval_service, meta_repository, None)
+        build_retrieval_tool(session_factory, retrieval_service, meta_repository, None)
     )
 
     assert "docs" in tool.description
@@ -73,6 +143,12 @@ def test_build_retrieval_tool_success_with_routed_collection():
     result = asyncio.run(tool.ainvoke({"collection_name": "docs", "query": "질문"}))
     payload = json.loads(result)
     assert payload["results"][0]["collection_name"] == "docs"
+    # 카탈로그 조회 세션과 도구 호출 세션은 각각 따로 열고 닫는다.
+    meta_repository.list_all.assert_awaited_once_with(session_factory.sessions[0])
+    retrieval_service.retrieve.assert_awaited_once_with(
+        session_factory.sessions[1], "docs", "질문"
+    )
+    assert session_factory.open_count == 0
 
 
 def test_build_calculator_tool_success_with_valid_expression():
@@ -102,12 +178,15 @@ def test_build_usage_stats_tool_success_with_scoped_requester():
     stats.total_cost = 0.0
     stats.currency = "USD"
     usage_stats_service.get_user_stats.return_value = stats
-    db = AsyncMock()
+    session_factory = _SessionFactory()
 
-    tool = build_usage_stats_tool(db, usage_stats_service, requester_id=42)
+    tool = build_usage_stats_tool(session_factory, usage_stats_service, requester_id=42)
     result = asyncio.run(tool.ainvoke({}))
 
-    usage_stats_service.get_user_stats.assert_awaited_once_with(db, 42)
+    usage_stats_service.get_user_stats.assert_awaited_once_with(
+        session_factory.sessions[0], 42
+    )
+    assert session_factory.open_count == 0
     payload = json.loads(result)
     assert payload["total_cost"] == 0.0
 

@@ -60,35 +60,58 @@ class ChatRepository:
         result = await db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def add_message(
+    async def add_turn_messages(
         self,
         db: AsyncSession,
         *,
         chat_id: str,
-        role: ChatMessageRole,
-        content: str,
-        citations: list[dict] | None = None,
-    ) -> ChatMessage:
+        query: str,
+        answer: str,
+        citations: list[dict],
+    ) -> tuple[ChatMessage, ChatMessage]:
         """
-        채팅 메시지 저장(사용자 질문 또는 어시스턴트 답변)
+        성공한 한 턴의 사용자 질문 + 어시스턴트 답변을 한 트랜잭션으로 저장
 
         Parameters:
             db(AsyncSession): DB 세션
             chat_id(str): 소속 채팅 id
-            role(ChatMessageRole): 발화자
-            content(str): 메시지 본문
-            citations(list[dict] | None): 답변 근거(어시스턴트 메시지만 해당)
+            query(str): 사용자 질문
+            answer(str): 어시스턴트 답변
+            citations(list[dict]): 답변 근거
 
         Returns:
-            ChatMessage: 저장된 메시지
+            tuple[ChatMessage, ChatMessage]: (사용자 메시지, 답변 메시지)
         """
-        message = ChatMessage(
+        user_message = ChatMessage(
+            chat_id=chat_id, role=ChatMessageRole.USER.value, content=query
+        )
+        assistant_message = ChatMessage(
             chat_id=chat_id,
-            role=role.value,
-            content=content,
+            role=ChatMessageRole.ASSISTANT.value,
+            content=answer,
             citations=citations,
         )
-        db.add(message)
+        db.add_all([user_message, assistant_message])
         await db.commit()
-        await db.refresh(message)
-        return message
+        return user_message, assistant_message
+
+    async def list_messages(self, db: AsyncSession, chat_id: str) -> list[ChatMessage]:
+        """
+        채팅 메시지 목록 조회(오래된 순)
+
+        같은 트랜잭션에 저장된 질문·답변은 created_at이 같으므로 id로 순서를 보장한다.
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            chat_id(str): 채팅 id
+
+        Returns:
+            list[ChatMessage]: 메시지 목록
+        """
+        stmt = (
+            select(ChatMessage)
+            .where(ChatMessage.chat_id == chat_id)
+            .order_by(ChatMessage.created_at, ChatMessage.id)
+        )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
