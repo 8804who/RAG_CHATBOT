@@ -91,52 +91,52 @@
 - Verification: code read only; relied on the PM pytest/ruff run.
 - Cost: 37918 tokens, 4 tool uses, 16 s
 
-### 2026-11-28 · system-architect · T-044
+### 2026-11-28 · system-architect · T-045
 - Work: approved PM's SSE streaming contract with amendments (lock owned/released by the stream generator, TTL ceiling if client drops before first chunk; explicit `stream_usage=True` on ChatOpenAI); recorded D-018
 - Files: `docs/harness/DECISION_LOG.md` (D-018), `docs/harness/API_CONTRACTS.md` (endpoint row, SSE note, change history)
 - Deliverables: D-018 (PM accepted 2026-11-28)
 - Verification: docs only; checked installed FastAPI 0.136.3 / Starlette 1.3.0 / uvicorn source for session lifetime and disconnect handling (as reported). No tests run
 - Issues found: streamed calls log status 200 and header-time duration in ApiCallLogMiddleware (known limit in D-018)
-- Follow-up: T-045 must test disconnect → rollback through the real middleware stack
+- Follow-up: T-046 must test disconnect → rollback through the real middleware stack
 - Cost: 55606 tokens / 13 tool uses / 145s
 
-### 2026-11-28 · frontend-developer · T-047
+### 2026-11-28 · frontend-developer · T-048
 - Work: token-by-token chat answers via fetch+ReadableStream SSE parser; `streamMessage` replaces unused `sendMessage`; streaming bubble reuses MessageBubble, ThinkingIndicator until first token; `aria-busy` while streaming; nginx `proxy_buffering off`
 - Files: `frontend/src/lib/api/{client.ts,sse.ts(new),chat.ts}`, `frontend/src/lib/types.ts`, `frontend/src/hooks/useChat.ts`, `frontend/src/pages/ChatPage.tsx`, `frontend/nginx.conf`, `docs/ARCHITECTURE.md:56`
 - Deliverables: code above
 - Verification: `npm run build` pass, `npm run lint` 0 errors (as reported; PM re-ran both: pass). Throwaway node check of the parser/streamMessage in scratchpad (not in repo). Browser check not run (backend endpoint not up)
-- Issues found: `docs/ARCHITECTURE.md:9` still says non-streaming (left to T-045 doc update)
-- Follow-up: T-048 review
+- Issues found: `docs/ARCHITECTURE.md:9` still says non-streaming (left to T-046 doc update)
+- Follow-up: T-049 review
 - Cost: 62020 tokens / 16 tool uses / 152s
 
-### 2026-11-28 · frontend-developer · T-047 (revision CR-018)
+### 2026-11-28 · frontend-developer · T-048 (revision CR-019)
 - Work: F1 in-flight question/streaming answer use the cache ids (`chatMessageId(chatId, n/n+1)`), no remount on done; F4 removed `proxy_buffering off` (backend `X-Accel-Buffering: no` covers it), comment kept
 - Files: `frontend/src/hooks/useChat.ts:139-160`, `frontend/nginx.conf:17`
 - Deliverables: code above
 - Verification: `npm run build` OK, `npm run lint` clean (as reported; PM re-ran: pass). Browser not run
 - Issues found: new-chat case switches ids once at createChat, before any token (accepted)
-- Follow-up: T-048 re-review
+- Follow-up: T-049 re-review
 - Cost: 36935 tokens / 6 tool uses / 31s
 
-### 2026-11-28 · backend-developer · T-045
+### 2026-11-28 · backend-developer · T-046
 - Work: `POST /chats/{id}/messages/stream` SSE (token/done/error), pre-stream JSON 4xx, generator-owned lock, shared `_start_turn`/`_finish_turn` with the non-streaming path, close-stream-then-rollback on error/cancel, explicit `stream_usage=True`
 - Files: `backend/app/services/agent/agent_orchestrator.py`, `api/v1/endpoints/chats.py`, `core/constants.py`, `schemes/dto/chat.py`, `core/model_config/chat_model_config.py`, `exceptions/handler.py`; tests in `tests/services/agent/test_agent_orchestrator.py`, `tests/api/v1/endpoints/test_chats.py`, `tests/core/model_config/test_chat_model_config.py`; `docs/ARCHITECTURE.md:9,23`, `docs/harness/SYSTEM_ARCHITECTURE.md:49`
 - Deliverables: code + 21 new tests
 - Verification: `uv run pytest` 175 passed, 1 warning; ruff check + format --check clean (as reported; PM re-ran with dummy env: 175 passed, ruff clean). Disconnect test runs through the real ASGI app + middleware. Live LLM stream not run
 - Issues found: timeout is per-await deadline (deviation); pre-tool text streams then is replaced by done; post-persistence usage-log failure → client gets error but messages saved (same gap as non-streaming, KI-044); `CLAUDE.md:3` says non-streaming
-- Follow-up: T-046 review; PM fixes CLAUDE.md line
+- Follow-up: T-047 review; PM fixes CLAUDE.md line
 - Cost: 148160 tokens / 44 tool uses / 857s
 
-### 2026-11-28 · backend-developer · T-045 (revision CR-019)
+### 2026-11-28 · backend-developer · T-046 (revision CR-020)
 - Work: `_shielded` wraps `asyncio.shield` in `anyio.CancelScope(shield=True)` (covers Starlette's re-firing cancel scope); stream lock release goes through `_shielded`; disconnect logs WARNING without traceback
 - Files: `backend/app/services/agent/agent_orchestrator.py:457,551,787`; tests `tests/services/agent/test_agent_orchestrator.py:1658` (new, anyio task-group cancel), `tests/api/v1/endpoints/test_chats.py:444` (spec_version 2.3, awaiting cleanup)
 - Deliverables: code + tests
 - Verification: both tests failed before the fix (assert / TimeoutError), pass after; `uv run pytest` 176 passed; ruff clean (as reported; PM re-ran: 176 passed, ruff clean)
 - Issues found: `anyio` imported directly but only a transitive dep (not in pyproject); `send_message`/`delete_chat` unlocks unshielded (out of scope)
-- Follow-up: T-046 re-review
+- Follow-up: T-047 re-review
 - Cost: 64465 tokens / 17 tool uses / 163s
 
-### 2026-11-28 · pm · T-049
+### 2026-11-28 · pm · T-050
 - Work: QA E2E not run: VERIFY_BLOCKED (no .env in worktree, :8000 held by the user's own debugger process, Google OAuth login required)
 - Files: `docs/harness/TASK_BOARD.md`, `docs/harness/KNOWN_ISSUES.md` (KI-060, KI-061), `CLAUDE.md:3`, `docs/harness/PROJECT_CONTEXT.md:56`, `docs/harness/LLM_SPECIFICATION.md:21` (non-streaming → D-018 fact; LLM_SPECIFICATION is rag-llm-owned, one-line fact fix by PM)
 - Deliverables: board/doc updates

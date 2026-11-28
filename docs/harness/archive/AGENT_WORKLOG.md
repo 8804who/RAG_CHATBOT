@@ -315,36 +315,55 @@
 - Verification: PM re-run `uv run pytest -c pyproject.toml -q` → 131 passed / 0 failed, ruff clean, live ping to stock Redis OK; `npm run build` + `npm run lint` OK; QA-003 PASS
 - Cost: BE 201183 tokens / 6 / 47.6s; FE 156501 / 6 / 67.9s
 
-### 2026-11-28 · frontend-code-reviewer · T-048
-- Work: reviewed T-047 streaming UI
-- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-018)
-- Deliverables: CR-018 PASS_WITH_NOTES, no blocking items
+### 2026-11-28 · frontend-developer · T-044
+- Did: added `components/chat/Markdown.tsx` (react-markdown ^10.1.0 + remark-gfm ^4.0.1, Tailwind token-based components map, links via `safeHttpUrl`, `_blank` + noopener); MessageBubble renders assistant content through it, user stays plain `whitespace-pre-wrap`; `min-w-0` on wrapper. No rehype-raw / dangerouslySetInnerHTML.
+- Verification: build + lint pass (PM re-ran: build OK, 489 kB / 148.7 kB gzip; lint clean). No browser check, no tests (no FE test runner).
+- Cost: 34476 tokens, 7 tool uses, 55 s
+
+### 2026-11-28 · frontend-code-reviewer · T-044
+- Did: reviewed T-044 diff → CR-018 PASS_WITH_NOTES, no blockers. F1 long tokens overflow assistant bubble (pre-existing), F2 `ol` ignores `start`, F3 nit inline/fenced code style override; `img` unmapped (external image load).
+- Verification: code review only; relied on PM build/lint run.
+- Cost: 34342 tokens, 3 tool uses, 24 s
+
+### 2026-11-28 · frontend-developer · T-044 (revision)
+- Did: CR-018 F1 `break-words` on assistant bubble; F2 `ol` passes `start`; `img` mapped to alt text only (no external image load). F3 skipped (would add code).
+- Verification: build + lint pass as reported; no browser check.
+- Cost: 31667 tokens, 2 tool uses, 20 s
+
+### 2026-11-28 · frontend-code-reviewer · T-044 (re-review)
+- Did: CR-018 re-review PASS; F1, F2, img closed; F3 deliberately skipped; no new findings.
+- Verification: code review only; PM re-ran build (OK) + lint (clean).
+- Cost: 29634 tokens, 4 tool uses, 8 s
+### 2026-11-28 · frontend-code-reviewer · T-049
+- Work: reviewed T-048 streaming UI
+- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-019)
+- Deliverables: CR-019 PASS_WITH_NOTES, no blocking items
 - Verification: `npm run build` OK, `npm run lint` clean; byte-offset split fuzz of `sse.ts` (CRLF, Korean, multi-line data) 0 mismatches (scratch, as reported). Live nginx stream, screen reader, render profiling not run
 - Issues found: F1 id swap remounts bubbles/scroll jump on done; F2 per-token re-render of all bubbles; F3 aria-busy support varies; F4 `proxy_buffering off` redundant; F5 stream error status 200
 - Follow-up: frontend-developer revises F1 + F4; F2/F3/F5 accepted as notes
 - Cost: 52063 tokens / 9 tool uses / 84s
 
-### 2026-11-28 · frontend-code-reviewer · T-048 (re-review)
-- Work: re-reviewed CR-018 F1/F4 fixes
-- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-018 re-review)
+### 2026-11-28 · frontend-code-reviewer · T-049 (re-review)
+- Work: re-reviewed CR-019 F1/F4 fixes
+- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-019 re-review)
 - Deliverables: PASS, no blocking items
 - Verification: `npm run build` OK, `npm run lint` clean (as reported). Live nginx stream not run
 - Issues found: none new
 - Follow-up: manual check that tokens arrive incrementally through the frontend container
 - Cost: 34515 tokens / 4 tool uses / 21s
 
-### 2026-11-28 · backend-code-reviewer · T-046
-- Work: reviewed T-045 SSE endpoint
-- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-019)
-- Deliverables: CR-019 CHANGES_REQUIRED
+### 2026-11-28 · backend-code-reviewer · T-047
+- Work: reviewed T-046 SSE endpoint
+- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-020)
+- Deliverables: CR-020 CHANGES_REQUIRED
 - Verification: repro with real Starlette 1.3.0 StreamingResponse + anyio 4.13.0 (scratch scripts): after disconnect, rollback and lock delete do not complete; with `anyio.CancelScope(shield=True)` they do (as reported). pytest/ruff not re-run by reviewer
 - Issues found: F1 major (cleanup cancelled by anyio scope), F2 test gap (fake cleanup never awaits); minor: body iterator not aclosed on disconnect (GC finalizer), each disconnect logs ERROR+traceback
 - Follow-up: backend-developer revises F1/F2
 - Cost: 65422 tokens / 14 tool uses / 129s
 
-### 2026-11-28 · backend-code-reviewer · T-046 (re-review)
-- Work: re-reviewed CR-019 F1/F2 fixes
-- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-019 re-review)
+### 2026-11-28 · backend-code-reviewer · T-047 (re-review)
+- Work: re-reviewed CR-020 F1/F2 fixes
+- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-020 re-review)
 - Deliverables: PASS_WITH_NOTES, no blocking items
 - Verification: scratch repro `starlette_fix.py` with real `_shielded` → rollback + lock delete complete; `PYTHONPATH=. uv run pytest -q` 176 passed; removing the CancelScope line fails 2 tests (restored) (as reported). Live Redis/Postgres/OpenAI/nginx not run
 - Issues found: anyio is a transitive dep imported directly (optional `uv add anyio`); stuck Redis/DB during shielded cleanup would delay shutdown

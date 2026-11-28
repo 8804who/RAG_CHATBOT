@@ -318,3 +318,9 @@ Verdict: PASS_WITH_NOTES. Build/lint run by PM (OK); not re-run. No browser pass
 
 Verified OK: `['chats','list']` is not a prefix of `['chats',id,'messages']`; nothing invalidates `['chats']`; list invalidation touches only the list. Delete vs in-flight turn: backend 409 is surfaced in the row; if a non-active chat's turn lands after delete, `setQueryData` skips (no entry) and only the list is refetched. Active delete: `reset()` (abort, navigate) then `removeQueries` exact, so no 404 refetch. 204 handled by `apiFetch`. Sign-out `queryClient.clear()` covers the list. Tokens exist in index.css; no `any`, no default export, API only via `lib/api`.
 
+### CR-018 re-review addendum (T-044 revision)
+Verdict: PASS. Code read only; build/lint by PM.
+- F1 closed: `MessageBubble.tsx:21` assistant bubble has `break-words`; user bubble unchanged.
+- F2 closed: `Markdown.tsx:17-21` `ol` passes `start`; `ul`/`li` unchanged.
+- Accepted-note closed: `Markdown.tsx:26` `img` renders alt text only, so no external image load (tracking-pixel path gone).
+- F3 deliberately skipped (nit, no change needed). No new findings.

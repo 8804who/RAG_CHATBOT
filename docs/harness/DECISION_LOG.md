@@ -190,7 +190,7 @@ D-001 to D-008 record decisions already reflected in the code. Their original da
 
 ### D-018 · Stream chat answers over SSE on a new endpoint; keep the non-streaming endpoint
 - Date: 2026-11-28
-- Decided by: `system-architect` (T-044), approving PM's draft with amendments (c) and (e)
+- Decided by: `system-architect` (T-045), approving PM's draft with amendments (c) and (e)
 - Status: Accepted by PM 2026-11-28 (amendments (c) and (e) accepted)
 - Context: `POST /chats/{chat_id}/messages` returns only after the whole agent turn (often 30-60 s). Users see nothing until then. D-016 (all-or-nothing turn, per-chat Redis lock) must still hold.
 - Decision:

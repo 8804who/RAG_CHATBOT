@@ -142,7 +142,25 @@ Verdict: PASS. Code read only; pytest 154 / ruff by PM, not re-run by me.
 - Lock: every post-acquire path (re-check 404/403, adelete_thread or delete error, `_run_turn` error, cancellation) is inside `try/finally` and releases once; a 409 raises in `_acquire_turn_lock` before `try`, so a lock held by someone else is never deleted. `send_message` keeps the 409, rollback and persist behavior (`_run_turn` unchanged).
 - Tests: the two `after_lock` tests assert 404, no agent / no thread or row delete, lock released; the ordering test proves commit precedes lock and `adelete_thread`. Minor gap: no assertion that `_run_turn` gets the second `chat` (both stubs return equal objects), not blocking.
 
-## CR-018 — T-047 SSE chat streaming (uncommitted frontend diff, feat/chat-stream)
+## CR-018 — T-044 Markdown rendering of assistant messages (uncommitted, feat/apply-markdown-on-chat-page)
+
+Verdict: PASS_WITH_NOTES. Code read only; build/lint by PM (OK), no browser pass, no test runner exists.
+
+| # | Sev | Where | Finding | Fix | Conf. |
+|---|-----|-------|---------|-----|-------|
+| F1 | minor | `Markdown.tsx:11-49`, `MessageBubble.tsx:18` | A long unbroken token (URL, hash, path) in a paragraph/list/heading has no wrap rule, so it can overflow the bubble now that the wrapper has `min-w-0`. Same as before for plain text, so not a regression. | `break-words` on the assistant bubble div | plausible |
+| F2 | minor | `Markdown.tsx:12-15,23` | Heading/list/blockquote nodes drop react-markdown's `node` prop correctly, but `ol` loses `start` and `li` task-list checkboxes (GFM) use defaults; a list starting at 3 renders from 1. Only matters if the LLM emits split lists. | Pass `start` through on `ol` if seen in practice | plausible |
+| F3 | nit | `Markdown.tsx:35` | Inline `code` styling is also applied to fenced code; the `pre [&>code]` overrides neutralise it. Works (arbitrary-variant selector outranks the utilities), just indirect. | None | confirmed |
+
+Verified OK:
+- Security: no `rehype-raw`, no `dangerouslySetInnerHTML`, default `urlTransform` kept (raw HTML is escaped as text). `a` goes through `safeHttpUrl` (http/https only; `javascript:`/relative/invalid fall back to plain text children), `target=_blank rel="noopener noreferrer"`. Images (`![]()`) are not mapped, so default `img` renders with a urlTransform-sanitised `src`; this can trigger an external fetch of an LLM-chosen URL (tracking-pixel class). Accepted unless you want `img: () => null`.
+- Rules: no `any`, named export only, props `interface`, explicit return type, `components` at module scope (stable identity, no remounts), `remarkPlugins` array is an inline literal but react-markdown handles it cheaply.
+- Styling: Tailwind only; every token used (`surface-2/3`, `line`, `line-strong`, `fg`, `muted`, `soft`) exists in `index.css @theme`. No green/brand colour used, so D-015 holds.
+- Overflow: `pre` and the table wrapper scroll inside the bubble (`overflow-x-auto`, `w-max min-w-full`). `min-w-0` on the wrapper in a flex row only lets it shrink; for user bubbles the width is still content-sized up to `max-w-2xl`, so it is harmless.
+- User messages unchanged (`whitespace-pre-wrap` kept, plain string child).
+- Bundle 489 kB / 148.7 kB gzip: acceptable, chat is the main route.
+
+## CR-019 — T-048 SSE chat streaming (uncommitted frontend diff, feat/chat-stream)
 
 Verdict: PASS_WITH_NOTES. No blocking findings. `npm run build` OK (109 modules, JS 323 kB / 98.7 kB gzip), `npm run lint` clean (both re-run by me). No browser or screen-reader pass; everything below is traced from code, except the parser, which I ran.
 
@@ -164,7 +182,7 @@ Verified OK:
 
 Not reviewed: live backend stream and nginx behavior (docker not run), screen readers, long-chat render profiling.
 
-### CR-018 re-review (T-048): F1 and F4 fixes from T-047
+### CR-019 re-review (T-049): F1 and F4 fixes from T-048
 
 Verdict: PASS. No blocking findings. `npm run build` OK (JS 323.50 kB / 98.71 kB gzip) and `npm run lint` clean, both re-run by me. Traced from code only; no browser pass.
 
@@ -175,7 +193,7 @@ Verdict: PASS. No blocking findings. `npm run build` OK (JS 323.50 kB / 98.71 kB
   - Residual, minor and not new: if a refetch landed between the server persisting and `done`, the cache write would append to the already-refetched history. This needs a forced refetch, which `staleTime: Infinity` rules out. No action.
 - F4 resolved (`nginx.conf:17`). `proxy_buffering off` is gone and a comment now points to the backend `X-Accel-Buffering: no` header (D-018a). The live stream through nginx was not run (docker not run), so one manual check remains: tokens should arrive incrementally via the frontend container.
 
-## CR-019 — T-046 SSE chat streaming backend (uncommitted `git diff -- backend`, feat/chat-stream)
+## CR-020 — T-047 SSE chat streaming backend (uncommitted `git diff -- backend`, feat/chat-stream)
 
 Verdict: CHANGES_REQUIRED (1 blocking). PM's run was not repeated (pytest 175 passed, ruff clean). I ran two scratch repros outside the repo against the real Starlette 1.3.0 / anyio 4.13.0 / uvicorn 0.49.0 in `backend/app/.venv`.
 
@@ -201,12 +219,12 @@ Verified OK:
 
 Not reviewed: live Redis/Postgres/Qdrant/OpenAI stream, nginx pass-through, load behavior (many concurrent streams x 240s). Coverage gaps: F2, plus no test for the deadline firing mid-stream with a real clock (fake only), and none for disconnect during `_finish_turn`.
 
-### CR-019 re-review (T-046 / T-045 revision, uncommitted, feat/chat-stream)
+### CR-020 re-review (T-047 / T-046 revision, uncommitted, feat/chat-stream)
 
 Verdict: PASS_WITH_NOTES. F1 and F2 are resolved. F4 is done. No blocking items.
 
 Checks run (dummy env, from `backend/app`):
-- My CR-019 repro `starlette_fix.py` (real `StreamingResponse`, spec_version 2.3, and the repo's `_shielded`) now prints `['rollback done', 'lock deleted']`. Before the fix the log was empty.
+- My CR-020 repro `starlette_fix.py` (real `StreamingResponse`, spec_version 2.3, and the repo's `_shielded`) now prints `['rollback done', 'lock deleted']`. Before the fix the log was empty.
 - `PYTHONPATH=. uv run pytest -q`: 176 passed. (Plain `uv run pytest` fails collection with ModuleNotFoundError in my shell; I did not look into why. `PYTHONPATH=.` works.)
 - Negative check: I temporarily replaced `with anyio.CancelScope(shield=True):` in `_shielded` with `if True:`. This gave 2 failed, 174 passed: `test_stream_message_failed_with_client_disconnect` and `test_stream_message_failed_with_anyio_cancel_scope_after_first_token`. So both new tests fail without the fix. The file was restored (`cp` back; the diff stat is unchanged).
 - Scratch `hang2.py`:

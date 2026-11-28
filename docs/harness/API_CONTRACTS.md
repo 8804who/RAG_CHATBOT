@@ -77,4 +77,4 @@ Outside `/api`: health check `/health` and `/`, and Prometheus `/metrics` (root 
 |---|---|---|
 | 2026-11-14 | Harness adopted; contract documented from the current code | — |
 | 2026-11-14 | Root `/metrics` added (T-015); not part of `/api` | D-012 follow-up |
-| 2026-11-28 | `POST /chats/{chat_id}/messages/stream` (SSE) added; non-streaming endpoint unchanged (T-044) | D-018 |
+| 2026-11-28 | `POST /chats/{chat_id}/messages/stream` (SSE) added; non-streaming endpoint unchanged (T-045) | D-018 |
