@@ -48,109 +48,6 @@
 
 
 
-### 2026-11-21 · rag-llm-engineer · T-030
-- Work: eval v2 harness: `EvalCase` schema, title→document_id resolution from `document_progress_status` (unresolved/ambiguous = case error), recall/precision from citations, judge default `gpt-6.2-sol` (JUDGE_MODEL override) scoring correctness + groundedness with retrieved snippets, behavior/tool assertions (expected/forbidden tools, expectedArgs with safe arithmetic parser, maxToolCalls, no_search/web_search/not_in_docs), tool sequence per case in results, `EVAL_DATASET`, per-dataset MD table
-- Files: `eval/src/{types,metrics,judge,db,api,results-reporter}.ts`, `eval/tests/rag-eval.spec.ts`, `eval/tests/metrics.unit.spec.ts` (new), `eval/README.md`, `eval/.env.example`
-- Deliverables: the files above
-- Verification: PM re-ran `npx tsc --noEmit` OK and `metrics.unit.spec.ts` 3/3 pass; PM confirmed `gpt-6.2-sol` is listed by /v1/models for the key. Agent-reported 2-case smoke: tool case pass, en-rag case fail (agent answered without search_documents)
-- Issues found: citations = all chunks returned by search_documents that turn (agent_orchestrator.py:263), 300-char snippets; `golden-dataset.json` kept (loadtest/core/config.py reads it); maxElapsedMs/maxTotalTokens no longer asserted; unresolved-title path untested
-- Follow-up: T-031 full run
-- Cost: 113,439 subagent tokens, 29 tool uses, 322 s
-
-### 2026-11-21 · rag-llm-scientist · T-029
-- Work: 10 sourced source docs (5 EN, 5 KO; 2025-2026 events) + 110 eval cases in the v2 schema
-- Files: `eval/test-data/v2/*.md` (10), `eval/fixtures/v2/{ko-rag,en-rag,ko-nonrag,en-nonrag,tool}.json`
-- Deliverables: ko-rag 30, en-rag 30, ko-nonrag 15, en-nonrag 15, tool 20 (PM re-counted; JSON loads)
-- Verification: agent-reported json.tool valid, ids unique, titles resolve, sourceUrls present. Nothing run against the live API
-- Issues found: facts fetched via a summarizing WebFetch, most single-source (World Cup final, KBO MVP, Seoul mayor, vote count cross-checked); several unverifiable facts dropped (listed in report)
-- Follow-up: T-031 ingest + run
-- Cost: 103,708 subagent tokens, 37 tool uses, 537 s
-
-### 2026-11-21 · rag-llm-engineer · T-031
-- Work: ingested 10 v2 docs into `rag_eval_v2` (`npm run ingest:v2`, idempotent), ran full v2 baseline (110 cases, judge gpt-6.2-sol, chat gpt-4o-mini, 1 run)
-- Files: `eval/scripts/ingest-v2.ts`, `eval/src/db.ts`, `eval/package.json`, `eval/tsconfig.json`, `eval/README.md`, `eval/results/2026-11-21-baseline-v2.{json,md}`
-- Verification: 110/110 case records, 0 errored, 36 pass; `npx tsc --noEmit` OK; unit 3/3. PM re-ran tsc + unit before PR #7
-- Issues found: only 24/60 RAG cases call search_documents (rest tavily) → P20; 8 nonrag forbidden tavily, 3 over maxToolCalls → P21; 2 calc arg errors → P22; precision ceiling ~1/7 on 15-chunk collection → P23 (threshold decision open)
-- Follow-up: 2 more v2 runs for variance; A1 force-search experiment
-- Shipped: PR #7 (harness), PR #8 (baselines), docs PR (plan + harness docs)
-
-### 2026-11-26 · frontend-developer + frontend-code-reviewer · T-032
-- Work: D-015 recorded, `.claude/.rules/design.md` points at `.claude/design/DESIGN-spotify.md`; whole SPA re-themed dark (semantic `@theme` tokens, `btn-*`/`field` utilities in `index.css`, className-only changes in 19 files)
-- Files: `frontend/src/**`, `docs/harness/DESIGN_GUIDELINES.md`, `.claude/.rules/design.md`, `docs/harness/DECISION_LOG.md`
-- Verification: build + lint OK (developer, reviewer, and main session re-run); Playwright screenshots against mocked API, backend not running
-- Review: CR-011 PASS_WITH_NOTES; KI-030 (drop-zone border contrast) fixed by main session
-- Follow-up: unused `StatusBadge.tsx`; sidebar not collapsing on mobile; sub-44px touch targets (pre-existing)
-
-### 2026-11-26 · main session (user-directed) · T-033
-- Work: multi-turn memory via LangGraph `AsyncPostgresSaver` (thread_id=chat_id) + `SummarizationMiddleware`; Alembic excludes checkpoint tables
-- Files: backend/app/services/agent/agent_orchestrator.py, dependencies/clients.py, dependencies/services.py, main.py, core/constants.py, migrations/env.py, pyproject.toml, uv.lock, tests/services/agent/test_agent_orchestrator.py, docs/ARCHITECTURE.md
-- Verification: `uv run pytest -c pyproject.toml -q` → 102 passed / 2 failed (stale warmup tests, removed in T-038); live 2-turn round-trip on real AsyncPostgresSaver (no LLM) OK; `alembic check` → no new operations
-- Issues found: CR-012 F1 (failed turn leaves dangling tool_calls) — fixed in T-038
-- Follow-up: E2E in T-041
-- Cost: n/a (main session)
-
-### 2026-11-26 · backend-code-reviewer · T-034
-- Work: full backend review incl. T-033 → CR-012 CHANGES_REQUESTED (F1 blocker, F2 major, F3–F9 minor)
-- Deliverables: CR-012, KI-031..039
-- Verification: pytest 102 passed / 2 failed (stale tests); no EXPLAIN (postgres MCP down)
-- Issues found: KI-031..039
-- Follow-up: T-038
-- Cost: 102256 tokens / 12 tool uses / 131.8s
-
-### 2026-11-26 · frontend-code-reviewer · T-035
-- Work: full frontend review → CR-013 CHANGES_REQUESTED (F1 blocker invalidate loop, F2–F6 major, F7–F14 minor)
-- Deliverables: CR-013, KI-040..042
-- Verification: `npm run build` OK, `npm run lint` clean; code tracing, no browser run
-- Issues found: KI-040..042
-- Follow-up: T-039, T-040
-- Cost: 74162 tokens / 7 tool uses / 66.4s
-
-### 2026-11-26 · system-architect · T-036
-- Work: architecture review LLM ↔ backend ↔ frontend; 9 ranked findings; SYSTEM_ARCHITECTURE.md synced incl. T-033; D-016 proposed
-- Files: docs/harness/SYSTEM_ARCHITECTURE.md, docs/harness/DECISION_LOG.md
-- Verification: code reading only; nothing run
-- Issues found: failed-turn thread corruption, shared session in parallel tools, KI-010 pool exhaustion, unpruned checkpoints, concurrent-send race, unused max_tokens, summarization cost, no history endpoint
-- Follow-up: D-016 accepted by PM with Redis-lock amendment; fixes in T-038/T-040
-- Cost: 119740 tokens / 17 tool uses / 154.7s
-
-### 2026-11-26 · ux-designer · T-037
-- Work: UX audit of the SPA → 17 findings (P0×3, P1×7, P2×7)
-- Verification: code-only audit, no Playwright run
-- Issues found: in report (no owned docs)
-- Follow-up: T-039, T-040
-- Cost: 53314 tokens / 4 tool uses / 30.8s
-
-### 2026-11-26 · backend-developer + backend-code-reviewer · T-038
-- Work: D-016 all-or-nothing turn (thread rollback incl. cancellation, shielded), Redis per-chat lock → 409, per-tool DB sessions, aprune keep_latest, ChatOpenAI max_tokens/timeout/max_retries, summarization 30k trigger on gpt-4o-mini with usage callback, `GET /chats/{id}/messages`, stale tests removed, INFO logs without args/email, conninfo via make_conninfo, lifespan AsyncExitStack
-- Files: backend/app/** (agent_orchestrator.py, tools.py, chat_repository.py, chats.py, responses.py, exceptions/chat.py, redis_client.py, dependencies/*, chat_model_config.py, main.py, core/constants.py), backend/tests/**, docs/harness/API_CONTRACTS.md, docs/ARCHITECTURE.md
-- Verification: developer + PM: `uv run pytest -c pyproject.toml -q` → 125 passed, then 129 passed / 0 failed after CR-014 revision; ruff check + format --check clean
-- Review: CR-014 PASS_WITH_NOTES (F1 cancel-path rollback, F6 lifespan → fixed with tests, PM sign-off per reviewer)
-- Issues found: KI-043..051 (minor/deferred)
-- Follow-up: T-041 E2E
-- Cost: dev 186147 tokens / 38 tool uses / 545.8s + revision 194814 / 5 / 70.7s; reviewer 100324 / 17 / 149.0s
-
-### 2026-11-26 · frontend-developer + frontend-code-reviewer · T-039, T-040
-- Work: T-039 non-chat fixes (status-query loop, per-file uploads, per-row delete + InlineConfirm, logout cache clear, apiFetch headers/detail, .md/.txt only, mobile drawer, 44px targets, named exports, safeHttpUrl); T-040 chat (URL chat id + history hydration, error/Retry/409, abort on New chat, ThinkingIndicator, IME-safe Enter, safe citations); CR-015 follow-ups (id fallback, stable history ids, no navigate after unmount, no cache write after logout, poll retry, InlineConfirm focus/color, drawer label)
-- Files: frontend/src/**, docs/harness/DESIGN_GUIDELINES.md
-- Verification: developer + PM: `npm run build` OK, `npm run lint` clean, 0 `export default`; developer Playwright with stubbed API (backend down); follow-ups not browser-checked
-- Review: CR-015 PASS_WITH_NOTES; PM sign-off per reviewer
-- Issues found: KI-052..056; open: global 401 (CR-013 F10), drawer focus trap
-- Follow-up: T-041 E2E
-- Cost: T-039 149347 tokens / 29 / 333.6s; T-040 119734 / 24 / 291.1s + follow-up 145086 / 32 / 92.1s; reviewer 97341 / 9 / 131.0s
-
-### 2026-11-27 · qa-engineer · T-041
-- Work: E2E on real API + real OpenAI with test session bypass. QA-002: 8 PASS, 1 PARTIAL (failed turn forced only pre-LLM), KI-057 critical (Redis password not passed → every send 500 on stock Redis). QA-003 re-check on stock Redis: 5/5 PASS
-- Deliverables: QA-002, QA-003, KI-057..059, screenshots `.playwright-mcp/qa00{2,3}-*.png`
-- Verification: Playwright MCP exploratory (no spec file); 11 + 3 billed turns; turn latency 1.0–9.7 s; cleanup re-queried to 0 rows
-- Issues found: KI-057 (closed), KI-058 (closed), KI-059 (partly closed: empty chat row after failed first turn, orphan progress rows)
-- Follow-up: none for this scope
-- Cost: QA-002 118068 tokens / 69 tool uses / 427.9s; QA-003 125655 tokens / 76 tool uses / 585.9s (as reported for the resumed run)
-
-### 2026-11-27 · backend-developer + frontend-developer · T-038, T-040 (QA revisions)
-- Work: BE: Redis password passed, generic English chat error messages without ids (KI-057, KI-058). FE: draft restored after failed send, input hidden on unavailable chat, fixed English error copy per status (KI-058/059)
-- Verification: PM re-run `uv run pytest -c pyproject.toml -q` → 131 passed / 0 failed, ruff clean, live ping to stock Redis OK; `npm run build` + `npm run lint` OK; QA-003 PASS
-- Cost: BE 201183 tokens / 6 / 47.6s; FE 156501 / 6 / 67.9s
-
 ### 2026-11-27 · frontend-developer · T-043
 - Did: `listChats`/`deleteChat` in `lib/api/chat.ts`, types in `lib/types.ts`; `useChatList`/`useDeleteChat` in `hooks/useChat.ts` (key `['chats','list']`, invalidated after create + each successful send); new `components/chat/ChatListPanel.tsx`, `ChatListItem.tsx`; ChatPage list (lg column, overlay below lg), New chat, `aria-current`, delete via `InlineConfirm`, 409 message.
 - Verification: `npm run build` OK, `npm run lint` OK (dev, after `npm ci`; PM re-run OK). No browser check, no tests (no FE runner).
@@ -193,3 +90,57 @@
 - Did: CR-017 re-review addendum → PASS. F1/F2 closed, the lock is released on every path, send_message unchanged otherwise. Gap: no test that `_run_turn` gets the re-fetched chat.
 - Verification: code read only; relied on the PM pytest/ruff run.
 - Cost: 37918 tokens, 4 tool uses, 16 s
+
+### 2026-11-28 · system-architect · T-044
+- Work: approved PM's SSE streaming contract with amendments (lock owned/released by the stream generator, TTL ceiling if client drops before first chunk; explicit `stream_usage=True` on ChatOpenAI); recorded D-018
+- Files: `docs/harness/DECISION_LOG.md` (D-018), `docs/harness/API_CONTRACTS.md` (endpoint row, SSE note, change history)
+- Deliverables: D-018 (PM accepted 2026-11-28)
+- Verification: docs only; checked installed FastAPI 0.136.3 / Starlette 1.3.0 / uvicorn source for session lifetime and disconnect handling (as reported). No tests run
+- Issues found: streamed calls log status 200 and header-time duration in ApiCallLogMiddleware (known limit in D-018)
+- Follow-up: T-045 must test disconnect → rollback through the real middleware stack
+- Cost: 55606 tokens / 13 tool uses / 145s
+
+### 2026-11-28 · frontend-developer · T-047
+- Work: token-by-token chat answers via fetch+ReadableStream SSE parser; `streamMessage` replaces unused `sendMessage`; streaming bubble reuses MessageBubble, ThinkingIndicator until first token; `aria-busy` while streaming; nginx `proxy_buffering off`
+- Files: `frontend/src/lib/api/{client.ts,sse.ts(new),chat.ts}`, `frontend/src/lib/types.ts`, `frontend/src/hooks/useChat.ts`, `frontend/src/pages/ChatPage.tsx`, `frontend/nginx.conf`, `docs/ARCHITECTURE.md:56`
+- Deliverables: code above
+- Verification: `npm run build` pass, `npm run lint` 0 errors (as reported; PM re-ran both: pass). Throwaway node check of the parser/streamMessage in scratchpad (not in repo). Browser check not run (backend endpoint not up)
+- Issues found: `docs/ARCHITECTURE.md:9` still says non-streaming (left to T-045 doc update)
+- Follow-up: T-048 review
+- Cost: 62020 tokens / 16 tool uses / 152s
+
+### 2026-11-28 · frontend-developer · T-047 (revision CR-018)
+- Work: F1 in-flight question/streaming answer use the cache ids (`chatMessageId(chatId, n/n+1)`), no remount on done; F4 removed `proxy_buffering off` (backend `X-Accel-Buffering: no` covers it), comment kept
+- Files: `frontend/src/hooks/useChat.ts:139-160`, `frontend/nginx.conf:17`
+- Deliverables: code above
+- Verification: `npm run build` OK, `npm run lint` clean (as reported; PM re-ran: pass). Browser not run
+- Issues found: new-chat case switches ids once at createChat, before any token (accepted)
+- Follow-up: T-048 re-review
+- Cost: 36935 tokens / 6 tool uses / 31s
+
+### 2026-11-28 · backend-developer · T-045
+- Work: `POST /chats/{id}/messages/stream` SSE (token/done/error), pre-stream JSON 4xx, generator-owned lock, shared `_start_turn`/`_finish_turn` with the non-streaming path, close-stream-then-rollback on error/cancel, explicit `stream_usage=True`
+- Files: `backend/app/services/agent/agent_orchestrator.py`, `api/v1/endpoints/chats.py`, `core/constants.py`, `schemes/dto/chat.py`, `core/model_config/chat_model_config.py`, `exceptions/handler.py`; tests in `tests/services/agent/test_agent_orchestrator.py`, `tests/api/v1/endpoints/test_chats.py`, `tests/core/model_config/test_chat_model_config.py`; `docs/ARCHITECTURE.md:9,23`, `docs/harness/SYSTEM_ARCHITECTURE.md:49`
+- Deliverables: code + 21 new tests
+- Verification: `uv run pytest` 175 passed, 1 warning; ruff check + format --check clean (as reported; PM re-ran with dummy env: 175 passed, ruff clean). Disconnect test runs through the real ASGI app + middleware. Live LLM stream not run
+- Issues found: timeout is per-await deadline (deviation); pre-tool text streams then is replaced by done; post-persistence usage-log failure → client gets error but messages saved (same gap as non-streaming, KI-044); `CLAUDE.md:3` says non-streaming
+- Follow-up: T-046 review; PM fixes CLAUDE.md line
+- Cost: 148160 tokens / 44 tool uses / 857s
+
+### 2026-11-28 · backend-developer · T-045 (revision CR-019)
+- Work: `_shielded` wraps `asyncio.shield` in `anyio.CancelScope(shield=True)` (covers Starlette's re-firing cancel scope); stream lock release goes through `_shielded`; disconnect logs WARNING without traceback
+- Files: `backend/app/services/agent/agent_orchestrator.py:457,551,787`; tests `tests/services/agent/test_agent_orchestrator.py:1658` (new, anyio task-group cancel), `tests/api/v1/endpoints/test_chats.py:444` (spec_version 2.3, awaiting cleanup)
+- Deliverables: code + tests
+- Verification: both tests failed before the fix (assert / TimeoutError), pass after; `uv run pytest` 176 passed; ruff clean (as reported; PM re-ran: 176 passed, ruff clean)
+- Issues found: `anyio` imported directly but only a transitive dep (not in pyproject); `send_message`/`delete_chat` unlocks unshielded (out of scope)
+- Follow-up: T-046 re-review
+- Cost: 64465 tokens / 17 tool uses / 163s
+
+### 2026-11-28 · pm · T-049
+- Work: QA E2E not run: VERIFY_BLOCKED (no .env in worktree, :8000 held by the user's own debugger process, Google OAuth login required)
+- Files: `docs/harness/TASK_BOARD.md`, `docs/harness/KNOWN_ISSUES.md` (KI-060, KI-061), `CLAUDE.md:3`, `docs/harness/PROJECT_CONTEXT.md:56`, `docs/harness/LLM_SPECIFICATION.md:21` (non-streaming → D-018 fact; LLM_SPECIFICATION is rag-llm-owned, one-line fact fix by PM)
+- Deliverables: board/doc updates
+- Verification: not run (env blocker)
+- Issues found: KI-060, KI-061
+- Follow-up: user runs the live smoke steps
+- Cost: n/a

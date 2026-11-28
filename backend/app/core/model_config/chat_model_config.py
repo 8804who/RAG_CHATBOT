@@ -11,7 +11,7 @@ from schemes.dto.chat import RegisteredChatModel
 
 def _openai_chat_model(model: str) -> ChatOpenAI:
     """
-    서버 강제 상한(응답 토큰·타임아웃·재시도)을 적용한 OpenAI 채팅 모델 생성
+    서버 강제 상한(응답 토큰·타임아웃·재시도)과 스트리밍 사용량 수집을 적용한 OpenAI 채팅 모델 생성
 
     Parameters:
         model(str): OpenAI 모델명
@@ -25,6 +25,8 @@ def _openai_chat_model(model: str) -> ChatOpenAI:
         max_tokens=DEFAULT_CHAT_MAX_COMPLETION_TOKENS,
         timeout=CHAT_MODEL_TIMEOUT_SECONDS,
         max_retries=CHAT_MODEL_MAX_RETRIES,
+        # 스트리밍 턴에서도 마지막 chunk로 토큰 사용량을 받아 사용량 로그를 남긴다(D-018e)
+        stream_usage=True,
     )
 
 

@@ -52,6 +52,12 @@ Priority: `P0` (urgent/blocking) · `P1` (current scope) · `P2` (later)
 | T-041 | E2E QA of multi-turn chat + fixes (real API, real OpenAI, test session row, cleanup) | `qa-engineer` | P0 | T-038, T-039, T-040 | QA-002 records each behavior PASS/FAIL; test rows cleaned up | COMPLETED | QA-002 REVISION_REQUIRED (KI-057 critical) → QA-003 PASS 5/5 on stock Redis; test rows cleaned to 0 | T-033, T-038, T-039, T-040 |
 | T-042 | Chat session list backend: `GET /api/v1/chats` (owner's chats, title from first user msg, last_message_at, one query, newest activity first) + `DELETE /api/v1/chats/{id}` (owner-only, 409 while a turn runs, `adelete_thread` per D-016(d)) | `backend-developer` | P1 | — | TDD; pytest all pass; ruff clean; API_CONTRACTS updated | VERIFY_BLOCKED | CR-017 re-review PASS; PM re-run (dummy env): pytest 154 passed / 0 failed, ruff clean. Docker down: list SQL not run/EXPLAINed on live Postgres (F3), no live-Postgres test | D-016, CR-017 |
 | T-043 | Chat session list UI: sidebar/list in ChatPage with New chat, active highlight, navigate to /chat/<id>, delete, list refresh after first message | `frontend-developer` | P1 | T-042 (contract only) | build + lint pass | VERIFY_BLOCKED | CR-016 re-review PASS_WITH_NOTES; PM build+lint OK; types match the T-042 schema. Docker down: no browser/E2E check vs the real API. Open: lg-resize inert edge | T-042, CR-016 |
+| T-044 | Chat streaming contract + transport decision (D-018, API_CONTRACTS row) | `system-architect` | P1 | — | SSE contract approved/amended; D-018 recorded; API_CONTRACTS row added | IN_PROGRESS | — | FR chat streaming |
+| T-045 | Backend SSE endpoint `POST /chats/{id}/messages/stream` (token/done/error events, D-016 persistence after stream, rollback on error/disconnect) | `backend-developer` | P1 | T-044 | TDD; pytest all pass; ruff clean; non-streaming endpoint unchanged | VERIFY_BLOCKED | CR-019 CHANGES_REQUIRED → re-review PASS_WITH_NOTES. PM re-run (dummy env): pytest 176 passed, ruff clean. Live OpenAI/Redis/Postgres stream not run: no .env in worktree, :8000 held by user process, OAuth login | D-016, D-018 |
+| T-046 | Review T-045 | `backend-code-reviewer` | P1 | T-045 | PASS or PASS_WITH_NOTES | COMPLETED | CR-019 CHANGES_REQUIRED → re-review PASS_WITH_NOTES (F1/F2 fixed, repro confirms rollback + unlock) | T-045 |
+| T-047 | Frontend streaming: fetch+ReadableStream SSE parser in `src/lib/api/chat.ts`, token-by-token render in useChat/ChatPage, nginx comment | `frontend-developer` | P1 | T-044 (contract only) | build + lint pass; no new deps | VERIFY_BLOCKED | CR-018 re-review PASS. PM build + lint pass. No browser/live-stream check (same env blocker as T-045) | D-018 |
+| T-048 | Review T-047 | `frontend-code-reviewer` | P1 | T-047 | PASS or PASS_WITH_NOTES | COMPLETED | CR-018 PASS_WITH_NOTES → re-review PASS | T-047 |
+| T-049 | E2E: answer renders incrementally; history persisted after reload; error shown | `qa-engineer` | P1 | T-046, T-048 | Playwright pass vs live stack (only if runnable) | VERIFY_BLOCKED | Not run: this branch's API can't start (no .env in worktree; :8000 held by user's debugger; Google OAuth login needed). User smoke steps in final report | T-045, T-047 |
 
 ## Skipped phases
 
@@ -79,6 +85,10 @@ Priority: `P0` (urgent/blocking) · `P1` (current scope) · `P2` (later)
 | T-042~T-043 | `system-architect` | Additive read/delete endpoints; D-016(a) already names `chat_messages` as the source for a future list endpoint and D-016(d) defines delete; user limited the team | PM fixed the contract in both briefs |
 | T-042~T-043 | `qa-engineer`, `ux-designer` | User limited the team; existing chat screen extended with a standard list pattern | reviews + pytest/ruff/build/lint |
 | T-042~T-043 | `rag-llm-*` | No agent/prompt/retrieval change | — |
+| T-044~T-049 | Complexity: T2 (BE + FE + agent run path, additive API contract; no schema change) | — | — |
+| T-044~T-049 | `rag-llm-engineer` (agent-path trigger) | User directed backend to `backend-developer`; change is transport only (no prompt/tool/retrieval change) | — |
+| T-044~T-049 | `ux-designer`, `rag-llm-scientist` | Existing chat screen, no new flow; not a quality question | — |
+| T-049 | `qa-engineer` (E2E) | Stack not runnable for this branch (env blocker above) → `VERIFY_BLOCKED` | ASGI-level SSE + disconnect tests, reviewer repro, build/lint |
 
 ## Completed outside the board flow
 

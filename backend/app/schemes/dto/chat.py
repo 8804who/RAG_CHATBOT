@@ -43,6 +43,20 @@ class ChatTurnResult:
 
 
 @dataclass(slots=True)
+class ChatStreamEvent:
+    """
+    스트리밍 턴 이벤트 1건
+
+    token이면 content = 답변 조각, error면 content = 사용자용 오류 문구,
+    done이면 result = 영속화까지 끝난 턴 결과.
+    """
+
+    event: str
+    content: str = ""
+    result: ChatTurnResult | None = None
+
+
+@dataclass(slots=True)
 class TurnUsage:
     """
     한 턴의 토큰 사용량 합계(에이전트 호출 + 요약 호출)

@@ -10,8 +10,11 @@ import type {
   CitationResponse,
   ChatSummary,
   CreateChatRequest,
+  StreamErrorEvent,
+  StreamTokenEvent,
 } from '../types'
-import { apiFetch } from './client'
+import { ApiError, apiFetch, apiResponse } from './client'
+import { readSse } from './sse'
 
 function toCitation(c: CitationResponse): Citation {
   return {
@@ -49,17 +52,7 @@ export async function createChat(
   })
 }
 
-/** Send a question in an existing chat and get the assistant's answer with citations. */
-export async function sendMessage(
-  chatId: string,
-  query: string,
-  signal?: AbortSignal,
-): Promise<ChatMessage> {
-  const res = await apiFetch<ChatMessageResponse>(chatPath(chatId), {
-    method: 'POST',
-    body: JSON.stringify({ query }),
-    signal,
-  })
+function toAnswer(res: ChatMessageResponse): ChatMessage {
   return {
     id: uid(),
     role: res.role,
@@ -67,6 +60,34 @@ export async function sendMessage(
     citations: res.citations.map(toCitation),
     createdAt: new Date().toISOString(),
   }
+}
+
+/**
+ * Send a question and stream the answer: `onToken` gets each text delta, then
+ * the promise resolves with the final answer (authoritative over the deltas).
+ * A stream `error` event, or a stream ending without `done`, rejects with ApiError.
+ */
+export async function streamMessage(
+  chatId: string,
+  query: string,
+  onToken: (delta: string) => void,
+  signal?: AbortSignal,
+): Promise<ChatMessage> {
+  const res = await apiResponse(`${chatPath(chatId)}/stream`, {
+    method: 'POST',
+    body: JSON.stringify({ query }),
+    signal,
+  })
+  if (res.body) {
+    for await (const { event, data } of readSse(res.body)) {
+      if (event === 'token') onToken((JSON.parse(data) as StreamTokenEvent).content)
+      else if (event === 'done') return toAnswer(JSON.parse(data) as ChatMessageResponse)
+      else if (event === 'error') {
+        throw new ApiError(res.status, (JSON.parse(data) as StreamErrorEvent).detail)
+      }
+    }
+  }
+  throw new ApiError(res.status, 'The answer stream ended before the answer was complete.')
 }
 
 /** Load a chat's pinned model/collection and stored messages (oldest first). */

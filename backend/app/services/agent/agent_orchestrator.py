@@ -1,10 +1,13 @@
 import asyncio
 import json
 import logging
-from collections.abc import Coroutine
-from dataclasses import asdict, replace
+import sys
+from collections.abc import AsyncGenerator, AsyncIterator, Coroutine
+from contextlib import aclosing
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
+import anyio
 from langchain.agents import create_agent
 from langchain.agents.middleware import SummarizationMiddleware
 from langchain_core.callbacks import UsageMetadataCallbackHandler
@@ -27,13 +30,19 @@ from core.constants import (
     CHAT_SUMMARY_KEEP_MESSAGES,
     CHAT_SUMMARY_MODEL,
     CHAT_LIST_LIMIT,
+    CHAT_STREAM_EVENT_DONE,
+    CHAT_STREAM_EVENT_ERROR,
+    CHAT_STREAM_EVENT_TOKEN,
+    CHAT_STREAM_MODEL_NODE,
     CHAT_SUMMARY_TRIGGER_TOKENS,
     CHAT_TITLE_ELLIPSIS,
     CHAT_TITLE_MAX_LENGTH,
     CHAT_TURN_LOCK_KEY_PREFIX,
     CHAT_TURN_LOCK_TTL_SECONDS,
     CHAT_TURN_TIMEOUT_SECONDS,
+    GENERIC_ERROR_MESSAGE,
 )
+from exceptions.base import AppException
 from exceptions.chat import (
     ChatAccessDeniedError,
     ChatNotFoundError,
@@ -44,6 +53,7 @@ from models import Chat, User
 from repositories import ChatRepository, CollectionMetadataRepository, LogRepository
 from schemes.dto.chat import (
     ChatHistory,
+    ChatStreamEvent,
     ChatSummary,
     ChatTurnResult,
     Citation,
@@ -66,6 +76,26 @@ from services.usage import UsageStatsService
 logger = logging.getLogger(__name__)
 
 _SNIPPET_LENGTH = 300
+
+
+@dataclass(slots=True)
+class _AgentTurn:
+    """
+    잠금 안에서 실행하는 에이전트 한 턴의 실행 문맥(비스트리밍·스트리밍 공용)
+    """
+
+    chat: Chat
+    query: str
+    requester: User
+    graph: CompiledStateGraph
+    run_config: dict
+    usage_handler: UsageMetadataCallbackHandler
+    before: list[AnyMessage]
+
+    @property
+    def input(self) -> dict:
+        """이번 턴 그래프 입력(현재 질문만, 이전 메시지는 체크포인터가 복원)"""
+        return {"messages": [HumanMessage(content=self.query)]}
 
 
 class AgentChatOrchestrator:
@@ -244,21 +274,71 @@ class AgentChatOrchestrator:
         Returns:
             ChatTurnResult: 답변 + 인용 목록
         """
-        chat = await self._get_owned_chat(db, chat_id, requester, "send_message")
-        # LLM 루프 동안 요청 세션이 idle-in-transaction으로 커넥션을 붙잡지 않도록
-        # 읽기 트랜잭션을 여기서 끝낸다(expire_on_commit=False라 객체는 그대로 사용).
-        await db.commit()
-
-        lock_key = await self._acquire_turn_lock(chat_id, requester, "send_message")
+        chat, lock_key = await self._lock_owned_chat(
+            db, chat_id, requester, "send_message"
+        )
         try:
-            # 잠금 대기 중 채팅이 삭제됐다면 LLM 턴 대신 404(FK 위반 500 방지)
-            chat = await self._get_owned_chat(db, chat_id, requester, "send_message")
-            await db.commit()
             return await self._run_turn(db, chat, query, requester)
         finally:
             # ponytail: 소유 토큰 비교 없이 삭제. 턴 상한(asyncio.timeout) < TTL이라
             # 실행 중 만료돼 남의 잠금을 지울 일은 없다.
             await self._redis.delete(lock_key)
+
+    async def stream_message(
+        self, db: AsyncSession, *, chat_id: str, query: str, requester: User
+    ) -> AsyncIterator[ChatStreamEvent]:
+        """
+        한 사용자 질의의 답변을 토큰 단위로 스트리밍하는 이벤트 스트림 준비
+
+        소유권 검증·잠금은 여기서 끝내 404/403/409가 스트림 시작 전에 예외로 나간다.
+        반환된 스트림은 token* → done|error 1회 순서로 이벤트를 내고, 잠금을 넘겨받아
+        종료 시(정상·오류·취소) 직접 해제한다.
+
+        Parameters:
+            db(AsyncSession): DB 세션(스트림 종료까지 열려 있어야 함)
+            chat_id(str): 채팅 세션 id
+            query(str): 사용자 질문
+            requester(User): 요청 사용자(소유권 검증용)
+
+        Returns:
+            AsyncIterator[ChatStreamEvent]: 턴 이벤트 스트림
+        """
+        chat, lock_key = await self._lock_owned_chat(
+            db, chat_id, requester, "stream_message"
+        )
+        # ponytail: 잠금 해제는 스트림의 finally 담당. 첫 chunk 전에 클라이언트가 끊겨
+        # 스트림이 시작조차 안 되면 TTL(CHAT_TURN_LOCK_TTL_SECONDS) 만료까지 잠금이 남는다.
+        return self._stream_turn(db, chat, query, requester, lock_key)
+
+    async def _lock_owned_chat(
+        self, db: AsyncSession, chat_id: str, requester: User, action: str
+    ) -> tuple[Chat, str]:
+        """
+        소유권 검증 → 턴 잠금 → 잠금 안에서 존재 재확인(실패 시 잠금 해제 후 예외)
+
+        Parameters:
+            db(AsyncSession): DB 세션
+            chat_id(str): 채팅 세션 id
+            requester(User): 요청 사용자
+            action(str): code_path에 남길 호출 함수명
+
+        Returns:
+            tuple[Chat, str]: 재확인한 채팅, 획득한 잠금 키(호출자가 해제)
+        """
+        await self._get_owned_chat(db, chat_id, requester, action)
+        # LLM 루프 동안 요청 세션이 idle-in-transaction으로 커넥션을 붙잡지 않도록
+        # 읽기 트랜잭션을 여기서 끝낸다(expire_on_commit=False라 객체는 그대로 사용).
+        await db.commit()
+
+        lock_key = await self._acquire_turn_lock(chat_id, requester, action)
+        try:
+            # 잠금 대기 중 채팅이 삭제됐다면 LLM 턴 대신 404(FK 위반 500 방지)
+            chat = await self._get_owned_chat(db, chat_id, requester, action)
+            await db.commit()
+        except BaseException:
+            await self._redis.delete(lock_key)
+            raise
+        return chat, lock_key
 
     async def _acquire_turn_lock(
         self, chat_id: str, requester: User, action: str
@@ -334,6 +414,108 @@ class AgentChatOrchestrator:
         Returns:
             ChatTurnResult: 답변 + 인용 목록
         """
+        turn = await self._start_turn(chat, query, requester)
+        try:
+            async with asyncio.timeout(CHAT_TURN_TIMEOUT_SECONDS):
+                result = await turn.graph.ainvoke(
+                    turn.input, config=turn.run_config, durability="exit"
+                )
+        except BaseException:
+            await self._abort_turn(turn)
+            raise
+        return await self._finish_turn(db, turn, result["messages"])
+
+    async def _stream_turn(
+        self,
+        db: AsyncSession,
+        chat: Chat,
+        query: str,
+        requester: User,
+        lock_key: str,
+    ) -> AsyncIterator[ChatStreamEvent]:
+        """
+        잠금을 넘겨받아 스트리밍 턴을 실행하고 종료 시 잠금 해제
+
+        Parameters:
+            db(AsyncSession): 요청 DB 세션
+            chat(Chat): 대상 채팅
+            query(str): 사용자 질문
+            requester(User): 요청 사용자
+            lock_key(str): 이미 획득한 턴 잠금 키
+
+        Returns:
+            AsyncIterator[ChatStreamEvent]: 턴 이벤트 스트림
+        """
+        try:
+            # 바깥이 닫히면(클라이언트 끊김) 안쪽 스트림도 닫아 롤백이 잠금 해제보다 먼저 돈다
+            async with aclosing(
+                self._stream_events(db, chat, query, requester)
+            ) as events:
+                async for event in events:
+                    yield event
+        finally:
+            await _shielded(self._redis.delete(lock_key))
+
+    async def _stream_events(
+        self, db: AsyncSession, chat: Chat, query: str, requester: User
+    ) -> AsyncIterator[ChatStreamEvent]:
+        """
+        에이전트를 stream_mode="messages"로 실행해 답변 토큰 → 영속화 → done/error 이벤트 생성
+
+        실패하면 스레드를 턴 시작 전으로 롤백하고 error 1건(AppException이면 그 message,
+        아니면 일반 문구)으로 끝낸다. 취소·종료(BaseException)는 롤백 후 그대로 전파한다.
+        턴 상한은 그래프·상태 조회 대기 시간에 걸린다(클라이언트로 보내는 시간 제외).
+
+        Parameters:
+            db(AsyncSession): 요청 DB 세션(실행 후 영속화에만 사용)
+            chat(Chat): 대상 채팅
+            query(str): 사용자 질문
+            requester(User): 요청 사용자
+
+        Returns:
+            AsyncIterator[ChatStreamEvent]: token* → done|error 이벤트
+        """
+        turn = await self._start_turn(chat, query, requester)
+        deadline = asyncio.get_running_loop().time() + CHAT_TURN_TIMEOUT_SECONDS
+        stream = turn.graph.astream(
+            turn.input,
+            config=turn.run_config,
+            stream_mode="messages",
+            durability="exit",
+        )
+        try:
+            while (item := await _next_before(stream, deadline)) is not None:
+                if token := _answer_token(*item):
+                    yield ChatStreamEvent(event=CHAT_STREAM_EVENT_TOKEN, content=token)
+            async with asyncio.timeout_at(deadline):
+                state = await turn.graph.aget_state(turn.run_config)
+            result = await self._finish_turn(db, turn, state.values.get("messages", []))
+        except AppException as exc:
+            await self._abort_stream(turn, stream)
+            yield ChatStreamEvent(event=CHAT_STREAM_EVENT_ERROR, content=exc.message)
+        except Exception:
+            await self._abort_stream(turn, stream)
+            yield ChatStreamEvent(
+                event=CHAT_STREAM_EVENT_ERROR, content=GENERIC_ERROR_MESSAGE
+            )
+        except BaseException:
+            await self._abort_stream(turn, stream)
+            raise
+        else:
+            yield ChatStreamEvent(event=CHAT_STREAM_EVENT_DONE, result=result)
+
+    async def _start_turn(self, chat: Chat, query: str, requester: User) -> _AgentTurn:
+        """
+        턴 실행 문맥 준비(그래프·usage 집계기·실행 설정·턴 시작 전 스레드 메시지)
+
+        Parameters:
+            chat(Chat): 대상 채팅
+            query(str): 사용자 질문
+            requester(User): 요청 사용자
+
+        Returns:
+            _AgentTurn: 턴 실행 문맥
+        """
         logger.info(
             "메시지 처리 시작: chat_id=%s, requester_id=%s, collection=%s, chat_model=%s",
             chat.id,
@@ -345,37 +527,85 @@ class AgentChatOrchestrator:
         usage_handler = UsageMetadataCallbackHandler()
         run_config = self._run_config(chat.id, requester, usage_handler)
         before = (await graph.aget_state(run_config)).values.get("messages", [])
+        return _AgentTurn(
+            chat=chat,
+            query=query,
+            requester=requester,
+            graph=graph,
+            run_config=run_config,
+            usage_handler=usage_handler,
+            before=before,
+        )
 
-        try:
-            async with asyncio.timeout(CHAT_TURN_TIMEOUT_SECONDS):
-                result = await graph.ainvoke(
-                    {"messages": [HumanMessage(content=query)]},
-                    config=run_config,
-                    durability="exit",
-                )
-        except BaseException:
-            # CancelledError(배포 SIGTERM·클라이언트 끊김)도 롤백 대상이다. 롤백 자체가
-            # 다시 취소되지 않도록 shield로 감싸 끝까지 실행한 뒤 원래 예외를 다시 던진다.
-            logger.exception(
-                "메시지 처리 실패: chat_id=%s, requester_id=%s", chat.id, requester.id
+    async def _abort_turn(self, turn: _AgentTurn) -> None:
+        """
+        실패 턴 기록 + 스레드 롤백(except 블록 안에서 호출)
+
+        CancelledError(배포 SIGTERM·클라이언트 끊김)도 롤백 대상이다. 롤백 자체가
+        다시 취소되지 않도록 shield로 감싸 끝까지 실행한다. 취소·종료는 일상적인
+        끊김이라 traceback 없이 WARNING, 그 외 실패는 ERROR + traceback으로 기록한다.
+
+        Parameters:
+            turn(_AgentTurn): 실패한 턴 문맥
+        """
+        if isinstance(sys.exception(), asyncio.CancelledError | GeneratorExit):
+            logger.warning(
+                "메시지 처리 중단(취소·연결 끊김): chat_id=%s, requester_id=%s",
+                turn.chat.id,
+                turn.requester.id,
             )
-            await _shielded(self._rollback_thread(graph, run_config, before))
-            raise
+        else:
+            logger.exception(
+                "메시지 처리 실패: chat_id=%s, requester_id=%s",
+                turn.chat.id,
+                turn.requester.id,
+            )
+        await _shielded(self._rollback_thread(turn.graph, turn.run_config, turn.before))
 
-        turn_messages = _new_messages(result["messages"], before)
+    async def _abort_stream(
+        self, turn: _AgentTurn, stream: AsyncGenerator[Any, None]
+    ) -> None:
+        """
+        스트리밍 실패 턴 정리(그래프 스트림 종료 → 스레드 롤백)
+
+        중단된 astream이 닫히며 체크포인트를 쓸 수 있어, 롤백보다 먼저 닫는다.
+
+        Parameters:
+            turn(_AgentTurn): 실패한 턴 문맥
+            stream(AsyncGenerator[Any, None]): 그래프 astream 제너레이터
+        """
+        await _shielded(stream.aclose())
+        await self._abort_turn(turn)
+
+    async def _finish_turn(
+        self, db: AsyncSession, turn: _AgentTurn, messages: list[AnyMessage]
+    ) -> ChatTurnResult:
+        """
+        성공한 턴 결과 계산 + 메시지·사용량 영속화 + 체크포인트 정리
+
+        Parameters:
+            db(AsyncSession): 요청 DB 세션
+            turn(_AgentTurn): 턴 문맥
+            messages(list[AnyMessage]): 실행 후 스레드 메시지
+
+        Returns:
+            ChatTurnResult: 답변 + 인용 목록
+        """
+        chat = turn.chat
+        turn_messages = _new_messages(messages, turn.before)
         answer = _final_answer(turn_messages)
         citations = _extract_citations(turn_messages)
         tool_calls = _tool_calls(turn_messages)
-        usage = _sum_usage(usage_handler)
+        usage = _sum_usage(turn.usage_handler)
 
         await self._chats.add_turn_messages(
             db,
             chat_id=chat.id,
-            query=query,
+            query=turn.query,
             answer=answer,
             citations=[asdict(citation) for citation in citations],
         )
-        await self._log_usage(db, chat, requester, usage, tool_calls)
+        await self._log_usage(db, chat, turn.requester, usage, tool_calls)
         await self._prune_thread(chat.id)
 
         logger.info(
@@ -554,22 +784,60 @@ def _truncate_title(title: str | None) -> str | None:
     return title[:CHAT_TITLE_MAX_LENGTH] + CHAT_TITLE_ELLIPSIS
 
 
-async def _shielded(coroutine: Coroutine[Any, Any, None]) -> None:
+async def _shielded(coroutine: Coroutine[Any, Any, Any]) -> None:
     """
     취소되지 않도록 보호한 채 코루틴을 끝까지 실행
 
-    호출 task가 기다리는 중 다시 취소돼도 내부 작업은 계속 돌고, 완료를 기다린 뒤
-    취소를 전파한다(롤백이 중간에 끊겨 스레드가 반쯤 남는 것을 방지).
+    asyncio task.cancel()(edge: 한 번)은 asyncio.shield가, Starlette의 anyio cancel
+    scope 취소(level: 이후 await마다 재발생)는 shield된 CancelScope가 막는다.
+    내부 작업이 끝난 뒤 취소를 전파한다(롤백·잠금 해제가 중간에 끊기는 것을 방지).
 
     Parameters:
-        coroutine(Coroutine[Any, Any, None]): 보호할 코루틴
+        coroutine(Coroutine[Any, Any, Any]): 보호할 코루틴(반환값은 버림)
     """
     task = asyncio.ensure_future(coroutine)
-    try:
-        await asyncio.shield(task)
-    except asyncio.CancelledError:
-        await task
-        raise
+    with anyio.CancelScope(shield=True):
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            await task
+            raise
+
+
+async def _next_before(
+    stream: AsyncGenerator[Any, None], deadline: float
+) -> Any | None:
+    """
+    턴 마감 시각 안에 그래프 스트림의 다음 항목 수신(끝나면 None, 넘으면 TimeoutError)
+
+    Parameters:
+        stream(AsyncGenerator[Any, None]): 그래프 astream 제너레이터
+        deadline(float): 이벤트 루프 시계 기준 턴 마감 시각
+
+    Returns:
+        Any | None: (message chunk, metadata) 또는 스트림 종료 시 None
+    """
+    async with asyncio.timeout_at(deadline):
+        return await anext(stream, None)
+
+
+def _answer_token(chunk: AnyMessage, metadata: dict) -> str:
+    """
+    스트림 chunk 중 에이전트 모델 노드의 답변 텍스트만 반환
+
+    요약 미들웨어 노드 출력·도구 노드 메시지는 제외하고, 텍스트가 없는
+    tool_call 조각은 빈 문자열이 된다.
+
+    Parameters:
+        chunk(AnyMessage): 메시지 chunk
+        metadata(dict): LangGraph 스트림 메타데이터(langgraph_node 포함)
+
+    Returns:
+        str: 보낼 답변 조각(보낼 것이 없으면 빈 문자열)
+    """
+    if metadata.get("langgraph_node") != CHAT_STREAM_MODEL_NODE:
+        return ""
+    return chunk.text
 
 
 def _new_messages(

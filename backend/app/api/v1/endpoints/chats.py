@@ -1,10 +1,23 @@
+import json
+from collections.abc import AsyncIterator
+from contextlib import aclosing
+
 from fastapi import APIRouter, Depends, Path, Response, status
+from fastapi.responses import StreamingResponse
+from fastapi.sse import format_sse_event
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.constants import (
+    CHAT_STREAM_EVENT_DONE,
+    CHAT_STREAM_EVENT_TOKEN,
+    CHAT_STREAM_HEADERS,
+    CHAT_STREAM_MEDIA_TYPE,
+)
 from dependencies.auth import get_current_user
 from dependencies.db import get_db_session
 from dependencies.services import get_chat_orchestrator
 from models import User
+from schemes.dto.chat import ChatStreamEvent, ChatTurnResult
 from schemes.requests import CreateChatRequest, SendChatMessageRequest
 from schemes.responses import (
     ChatHistoryMessageResponse,
@@ -188,7 +201,8 @@ async def send_message(
     질의를 에이전트에 넘긴다. 에이전트는 필요한 도구(문서 검색/계산기/웹
     검색/사용량 조회)를 스스로 선택해 여러 번 호출할 수 있고(멀티스텝),
     문서 검색은 컬렉션이 고정되지 않은 채팅이면 대상 컬렉션도 직접 고른다.
-    결과를 메시지로 영속화하고 토큰 사용량을 기록한다(비스트리밍). 한 턴은
+    결과를 메시지로 영속화하고 토큰 사용량을 기록한다(비스트리밍, 토큰 스트리밍은
+    /messages/stream). 한 턴은
     전부 아니면 전무라, 실패하면 질문도 저장되지 않으므로 그대로 재전송하면 된다.
 
     Path Variables:
@@ -212,6 +226,102 @@ async def send_message(
     result = await chat_orchestrator.send_message(
         db, chat_id=chat_id, query=body.query, requester=current_user
     )
+    return _to_message_response(result)
+
+
+@router.post(
+    "/{chat_id}/messages/stream",
+    status_code=status.HTTP_200_OK,
+    response_class=StreamingResponse,
+    responses={status.HTTP_200_OK: {"content": {CHAT_STREAM_MEDIA_TYPE: {}}}},
+)
+async def stream_message(
+    body: SendChatMessageRequest,
+    chat_id: str = Path(..., min_length=1),
+    chat_orchestrator: AgentChatOrchestrator = Depends(get_chat_orchestrator),
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user),
+) -> StreamingResponse:
+    """
+    ### 채팅 메시지 스트리밍 전송(SSE)
+
+    POST /chats/{chat_id}/messages와 같은 턴을 실행하되, 최종 답변 토큰을
+    Server-Sent Events로 바로 흘려보낸다. 검증 실패(401/403/404/409/422)는
+    스트림 시작 전에 일반 JSON 오류로 응답한다. 스트림은 token 이벤트 0개 이상 뒤
+    done 또는 error 이벤트 1개로 끝나며, error면 턴 전체가 저장되지 않는다.
+
+    Path Variables:
+        chat_id(str): 대상 채팅 id
+
+    Request Body:
+        SendChatMessageRequest: 질의 요청
+            query: 사용자 질문
+
+    Response Body:
+        text/event-stream:
+            event: token, data: {"content": 답변 조각}
+            event: done, data: ChatMessageResponse(role, content, citations)
+            event: error, data: {"detail": 사용자용 오류 문구}
+
+    Error Response:
+        로그인하지 않은 경우: (401 Unauthorized)
+        채팅이 존재하지 않을 경우: (404 Not Found)
+        다른 사용자의 채팅일 경우: (403 Forbidden)
+        같은 채팅의 이전 메시지를 처리 중일 경우: (409 Conflict)
+    """
+    events = await chat_orchestrator.stream_message(
+        db, chat_id=chat_id, query=body.query, requester=current_user
+    )
+    return StreamingResponse(
+        _sse_frames(events),
+        media_type=CHAT_STREAM_MEDIA_TYPE,
+        headers=CHAT_STREAM_HEADERS,
+    )
+
+
+async def _sse_frames(events: AsyncIterator[ChatStreamEvent]) -> AsyncIterator[bytes]:
+    """
+    턴 이벤트를 SSE 프레임(bytes)으로 인코딩
+
+    응답이 닫히면 서비스 스트림도 닫아 롤백·잠금 해제가 바로 돌게 한다.
+
+    Parameters:
+        events(AsyncIterator[ChatStreamEvent]): 오케스트레이터 이벤트 스트림
+
+    Returns:
+        AsyncIterator[bytes]: SSE 프레임
+    """
+    async with aclosing(events):
+        async for event in events:
+            yield format_sse_event(event=event.event, data_str=_event_data(event))
+
+
+def _event_data(event: ChatStreamEvent) -> str:
+    """
+    이벤트 종류별 data JSON 문자열 생성
+
+    Parameters:
+        event(ChatStreamEvent): 턴 이벤트
+
+    Returns:
+        str: token {"content"}, done ChatMessageResponse, error {"detail"}
+    """
+    if event.event == CHAT_STREAM_EVENT_DONE:
+        return _to_message_response(event.result).model_dump_json()
+    key = "content" if event.event == CHAT_STREAM_EVENT_TOKEN else "detail"
+    return json.dumps({key: event.content}, ensure_ascii=False)
+
+
+def _to_message_response(result: ChatTurnResult) -> ChatMessageResponse:
+    """
+    턴 결과를 채팅 메시지 응답 스키마로 변환(비스트리밍 응답·스트림 done 공용)
+
+    Parameters:
+        result(ChatTurnResult): 답변 + 인용 목록
+
+    Returns:
+        ChatMessageResponse: role="assistant" 응답
+    """
     return ChatMessageResponse(
         role="assistant",
         content=result.content,

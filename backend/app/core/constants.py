@@ -26,6 +26,16 @@ CHAT_TURN_TIMEOUT_SECONDS = 240
 CHAT_TURN_LOCK_KEY_PREFIX = "chat:turn-lock:"
 CHAT_TURN_LOCK_TTL_SECONDS = CHAT_TURN_TIMEOUT_SECONDS + 60
 
+# 채팅 스트리밍(SSE) 이벤트 이름, 토큰을 내보낼 에이전트 노드, 일반 오류 문구
+CHAT_STREAM_EVENT_TOKEN = "token"
+CHAT_STREAM_EVENT_DONE = "done"
+CHAT_STREAM_EVENT_ERROR = "error"
+CHAT_STREAM_MODEL_NODE = "model"
+GENERIC_ERROR_MESSAGE = "일시적으로 장애가 발생하였습니다."
+CHAT_STREAM_MEDIA_TYPE = "text/event-stream"
+# 프록시(nginx) 버퍼링·캐시를 꺼 토큰이 즉시 전달되게 한다
+CHAT_STREAM_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
 # 채팅 목록(GET /chats): 최대 반환 개수와 제목(첫 사용자 질문) 최대 글자 수
 # ponytail: 페이지네이션 없이 최근 100개 고정 상한. 채팅이 더 많아지면 커서 페이지네이션 도입.
 CHAT_LIST_LIMIT = 100

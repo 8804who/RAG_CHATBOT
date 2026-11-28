@@ -1,4 +1,6 @@
-from collections.abc import Iterator
+import asyncio
+import json
+from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
 
@@ -15,7 +17,14 @@ from exceptions.chat import (
 )
 from main import app
 from models import ChatMessage, User
-from schemes.dto.chat import ChatHistory, ChatSummary, ChatTurnResult
+from schemes.dto.chat import (
+    ChatHistory,
+    ChatStreamEvent,
+    ChatSummary,
+    ChatTurnResult,
+    Citation,
+)
+from services.agent.agent_orchestrator import _shielded
 
 _CREATED_AT = datetime(2026, 11, 26, 12, 0, tzinfo=UTC)
 
@@ -284,3 +293,217 @@ def test_delete_chat_failed_with_service_error(orchestrator, error, expected_sta
 
     assert response.status_code == expected_status
     assert response.json()["detail"] == error.response_message
+
+
+_STREAM_URL = "/api/v1/chats/c1/messages/stream"
+
+
+async def _events(*events: ChatStreamEvent) -> AsyncIterator[ChatStreamEvent]:
+    for event in events:
+        yield event
+
+
+def _sse(text: str) -> list[tuple[str, dict]]:
+    """SSE 본문을 (event, data JSON) 목록으로 파싱"""
+    frames = []
+    for block in text.strip().split("\n\n"):
+        fields = dict(line.split(": ", 1) for line in block.splitlines())
+        frames.append((fields["event"], json.loads(fields["data"])))
+    return frames
+
+
+def test_stream_message_success_with_tokens_then_done(orchestrator):
+    """
+    메시지 스트리밍(성공)
+
+    입력 데이터
+        - POST /api/v1/chats/c1/messages/stream, query = "질문"
+        - 오케스트레이터 이벤트: token "안녕", token "하세요", done(답변 + 인용 1건)
+
+    예상 출력 데이터
+        - 200 text/event-stream, Cache-Control: no-cache, X-Accel-Buffering: no
+        - token {"content"} 2건 → done = 비스트리밍 응답과 같은 ChatMessageResponse JSON
+    """
+    result = ChatTurnResult(
+        content="안녕하세요",
+        citations=[Citation(source_type="web", title="t", snippet="s", url="u")],
+    )
+    orchestrator.stream_message.return_value = _events(
+        ChatStreamEvent(event="token", content="안녕"),
+        ChatStreamEvent(event="token", content="하세요"),
+        ChatStreamEvent(event="done", result=result),
+    )
+
+    response = TestClient(app).post(_STREAM_URL, json={"query": "질문"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["x-accel-buffering"] == "no"
+    assert _sse(response.text) == [
+        ("token", {"content": "안녕"}),
+        ("token", {"content": "하세요"}),
+        (
+            "done",
+            {
+                "role": "assistant",
+                "content": "안녕하세요",
+                "citations": [
+                    {
+                        "source_type": "web",
+                        "title": "t",
+                        "snippet": "s",
+                        "document_id": None,
+                        "chunk_id": None,
+                        "collection_name": None,
+                        "url": "u",
+                    }
+                ],
+            },
+        ),
+    ]
+    kwargs = orchestrator.stream_message.call_args.kwargs
+    assert (kwargs["chat_id"], kwargs["query"], kwargs["requester"].id) == (
+        "c1",
+        "질문",
+        1,
+    )
+
+
+def test_stream_message_failed_with_error_event(orchestrator):
+    """
+    메시지 스트리밍(실패) - 스트림 도중 실패
+
+    입력 데이터
+        - 오케스트레이터 이벤트: token "부분", error "일시적으로 장애가 발생하였습니다."
+
+    예상 출력 데이터
+        - 200 스트림, 마지막 프레임 error {"detail": 문구}
+    """
+    orchestrator.stream_message.return_value = _events(
+        ChatStreamEvent(event="token", content="부분"),
+        ChatStreamEvent(event="error", content="일시적으로 장애가 발생하였습니다."),
+    )
+
+    response = TestClient(app).post(_STREAM_URL, json={"query": "질문"})
+
+    assert response.status_code == 200
+    assert _sse(response.text) == [
+        ("token", {"content": "부분"}),
+        ("error", {"detail": "일시적으로 장애가 발생하였습니다."}),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_status"),
+    [
+        (ChatNotFoundError, 404),
+        (ChatAccessDeniedError, 403),
+        (ChatTurnInProgressError, 409),
+    ],
+)
+def test_stream_message_failed_with_pre_stream_error(
+    orchestrator, error, expected_status
+):
+    """
+    메시지 스트리밍(실패) - 스트림 시작 전 검증 실패는 일반 JSON 오류
+
+    입력 데이터
+        - 오케스트레이터 stream_message가 각 예외
+
+    예상 출력 데이터
+        - 각각 404 / 403 / 409, application/json, detail = 사용자용 안내 문구
+    """
+    orchestrator.stream_message.side_effect = error(
+        message=error.response_message, code_path="p"
+    )
+
+    response = TestClient(app).post(_STREAM_URL, json={"query": "질문"})
+
+    assert response.status_code == expected_status
+    assert response.headers["content-type"] == "application/json"
+    assert response.json() == {"detail": error.response_message}
+
+
+def test_stream_message_failed_with_invalid_body(orchestrator):
+    """
+    메시지 스트리밍(실패) - 요청 본문 검증 실패
+
+    입력 데이터
+        - POST /api/v1/chats/c1/messages/stream, 본문 {}
+
+    예상 출력 데이터
+        - 422 JSON, 오케스트레이터 미호출
+    """
+    response = TestClient(app).post(_STREAM_URL, json={})
+
+    assert response.status_code == 422
+    orchestrator.stream_message.assert_not_called()
+
+
+def test_stream_message_failed_with_client_disconnect(orchestrator):
+    """
+    메시지 스트리밍(실패) - 첫 토큰 후 클라이언트 연결 끊김(미들웨어 포함 실제 ASGI 앱)
+
+    입력 데이터
+        - 오케스트레이터 스트림: token "부분" 후 LLM 대기(끝나지 않음)
+        - 첫 본문 전송 뒤 receive가 http.disconnect(uvicorn과 같은 spec_version 2.3)
+
+    예상 출력 데이터
+        - 앱 호출이 끝나고, 오케스트레이터 스트림의 await 정리(서비스 shield 사용)가 끝까지 실행됨
+    """
+    closed = asyncio.Event()
+
+    async def cleanup() -> None:
+        await asyncio.sleep(0)
+        closed.set()
+
+    async def hanging_events() -> AsyncIterator[ChatStreamEvent]:
+        try:
+            yield ChatStreamEvent(event="token", content="부분")
+            await asyncio.Event().wait()
+        finally:
+            await _shielded(cleanup())
+
+    orchestrator.stream_message.return_value = hanging_events()
+
+    async def scenario() -> list[dict]:
+        sent: list[dict] = []
+        first_body = asyncio.Event()
+        requested = False
+
+        async def receive() -> dict:
+            nonlocal requested
+            if not requested:
+                requested = True
+                body = json.dumps({"query": "질문"}).encode()
+                return {"type": "http.request", "body": body, "more_body": False}
+            await first_body.wait()
+            return {"type": "http.disconnect"}
+
+        async def send(message: dict) -> None:
+            sent.append(message)
+            if message["type"] == "http.response.body" and message.get("body"):
+                first_body.set()
+
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": _STREAM_URL,
+            "raw_path": _STREAM_URL.encode(),
+            "query_string": b"",
+            "headers": [(b"content-type", b"application/json"), (b"host", b"test")],
+            "client": ("127.0.0.1", 1),
+            "server": ("test", 80),
+        }
+        await asyncio.wait_for(app(scope, receive, send), timeout=5)
+        await asyncio.wait_for(closed.wait(), timeout=5)
+        return sent
+
+    sent = asyncio.run(scenario())
+
+    assert sent[0]["status"] == 200
+    assert closed.is_set()

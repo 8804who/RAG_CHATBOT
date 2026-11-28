@@ -27,6 +27,22 @@ def test_chat_model_catalog_success_with_server_limits(name):
     assert model.max_retries == CHAT_MODEL_MAX_RETRIES
 
 
+@pytest.mark.parametrize("name", sorted(chat_model_catalog))
+def test_chat_model_catalog_success_with_stream_usage_enabled(name):
+    """
+    채팅 모델 카탈로그(성공) - 스트리밍 중에도 토큰 사용량 수집
+
+    입력 데이터
+        - 등록된 각 채팅 모델
+
+    예상 출력 데이터
+        - stream_usage = True(스트리밍 턴의 사용량 로그가 0이 되지 않음)
+    """
+    _, model = chat_model_catalog[name]
+
+    assert model.stream_usage is True
+
+
 def test_chat_model_catalog_success_with_summary_model_registered():
     """
     채팅 모델 카탈로그(성공) - 요약 모델이 등록 모델 중 하나
