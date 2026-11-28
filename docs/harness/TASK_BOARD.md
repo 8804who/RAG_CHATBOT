@@ -52,6 +52,7 @@ Priority: `P0` (urgent/blocking) · `P1` (current scope) · `P2` (later)
 | T-041 | E2E QA of multi-turn chat + fixes (real API, real OpenAI, test session row, cleanup) | `qa-engineer` | P0 | T-038, T-039, T-040 | QA-002 records each behavior PASS/FAIL; test rows cleaned up | COMPLETED | QA-002 REVISION_REQUIRED (KI-057 critical) → QA-003 PASS 5/5 on stock Redis; test rows cleaned to 0 | T-033, T-038, T-039, T-040 |
 | T-042 | Chat session list backend: `GET /api/v1/chats` (owner's chats, title from first user msg, last_message_at, one query, newest activity first) + `DELETE /api/v1/chats/{id}` (owner-only, 409 while a turn runs, `adelete_thread` per D-016(d)) | `backend-developer` | P1 | — | TDD; pytest all pass; ruff clean; API_CONTRACTS updated | VERIFY_BLOCKED | CR-017 re-review PASS; PM re-run (dummy env): pytest 154 passed / 0 failed, ruff clean. Docker down: list SQL not run/EXPLAINed on live Postgres (F3), no live-Postgres test | D-016, CR-017 |
 | T-043 | Chat session list UI: sidebar/list in ChatPage with New chat, active highlight, navigate to /chat/<id>, delete, list refresh after first message | `frontend-developer` | P1 | T-042 (contract only) | build + lint pass | VERIFY_BLOCKED | CR-016 re-review PASS_WITH_NOTES; PM build+lint OK; types match the T-042 schema. Docker down: no browser/E2E check vs the real API. Open: lg-resize inert edge | T-042, CR-016 |
+| T-044 | Render assistant chat messages as Markdown (GFM) in MessageBubble; safe (no raw HTML), links new tab + noopener | `frontend-developer` | P2 | — | react-markdown+remark-gfm, no raw HTML, safe links, Tailwind styling, build+lint pass, review pass | COMPLETED | CR-018 re-review PASS; PM build+lint OK. No browser/visual check; F3 nit skipped | CR-018 |
 
 ## Skipped phases
 
@@ -79,6 +80,8 @@ Priority: `P0` (urgent/blocking) · `P1` (current scope) · `P2` (later)
 | T-042~T-043 | `system-architect` | Additive read/delete endpoints; D-016(a) already names `chat_messages` as the source for a future list endpoint and D-016(d) defines delete; user limited the team | PM fixed the contract in both briefs |
 | T-042~T-043 | `qa-engineer`, `ux-designer` | User limited the team; existing chat screen extended with a standard list pattern | reviews + pytest/ruff/build/lint |
 | T-042~T-043 | `rag-llm-*` | No agent/prompt/retrieval change | — |
+| T-044 | Complexity: T1 (frontend only, one component, no contract change) | — | — |
+| T-044 | `qa-engineer`, `ux-designer`, `system-architect`, backend/LLM agents | Rendering-only change in an existing screen; no flow, contract, or LLM change | build + lint + CR |
 
 ## Completed outside the board flow
 

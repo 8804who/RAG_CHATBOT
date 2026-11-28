@@ -1,5 +1,6 @@
 import { safeHttpUrl } from '../../lib/format'
 import type { Citation, ChatMessage } from '../../lib/types'
+import { Markdown } from './Markdown'
 
 interface MessageBubbleProps {
   message: ChatMessage
@@ -14,13 +15,13 @@ export function MessageBubble({ message }: MessageBubbleProps): React.JSX.Elemen
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className="max-w-2xl">
+      <div className="min-w-0 max-w-2xl">
         <div
-          className={`whitespace-pre-wrap rounded-lg px-4 py-3 text-sm leading-normal text-fg ${
-            isUser ? 'bg-surface-3' : 'bg-surface'
+          className={`rounded-lg px-4 py-3 text-sm leading-normal text-fg ${
+            isUser ? 'whitespace-pre-wrap bg-surface-3' : 'break-words bg-surface'
           }`}
         >
-          {message.content}
+          {isUser ? message.content : <Markdown content={message.content} />}
         </div>
 
         {message.citations && message.citations.length > 0 && (
