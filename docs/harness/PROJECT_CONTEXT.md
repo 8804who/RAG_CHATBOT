@@ -53,7 +53,7 @@ docs/            design docs, docs/harness/ (this system); docs/career/ is priva
 
 ## Current stage (as of 2026-11-14)
 
-- All core features are wired to the real backend (no frontend mocks). Chat is non-streaming.
+- All core features are wired to the real backend (no frontend mocks). Chat answers stream token by token over SSE (D-018); the non-streaming endpoint remains for eval/loadtest.
 - Recent work: switched to a LangChain/LangGraph agent, added the arXiv search tool, store agent tool-call logs (`agent_tool_call_logs`); load tests (`loadtest/`); local monitoring and logging stack; backend and frontend run as non-root containers.
 - Direction: a measure-first roadmap — measure quality, cost, and latency with eval, then improve.
 - 2026-11-14: multi-agent harness (this directory) adopted; versioned in git since D-014.

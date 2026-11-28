@@ -28,11 +28,8 @@ async function errorMessage(res: Response): Promise<string> {
   return `Request failed (error ${res.status})`
 }
 
-/** Thin fetch wrapper for real backend calls. Sends cookies for the session. */
-export async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+/** Fetch with the session cookie; throws ApiError on a non-2xx status. The body is unread. */
+export async function apiResponse(path: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers)
   if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
 
@@ -45,6 +42,15 @@ export async function apiFetch<T>(
   if (!res.ok) {
     throw new ApiError(res.status, await errorMessage(res))
   }
+  return res
+}
+
+/** Thin fetch wrapper for real backend calls. Sends cookies for the session. */
+export async function apiFetch<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
+  const res = await apiResponse(path, options)
 
   // 204 No Content (e.g. logout) has no body.
   if (res.status === 204) return undefined as T

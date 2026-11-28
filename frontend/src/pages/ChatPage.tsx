@@ -67,7 +67,7 @@ export function ChatPage(): React.JSX.Element {
     : (chatModels?.[0]?.name ?? '')
 
   const chat = useChat({ chatId, collectionName, chatModel: chatModel || null })
-  const { messages, history, isThinking } = chat
+  const { messages, history, isThinking, isStreaming } = chat
 
   const lastMessageRef = useRef<HTMLDivElement>(null)
   const lastMessageId = messages.at(-1)?.id
@@ -196,7 +196,7 @@ export function ChatPage(): React.JSX.Element {
             <MessageBubble message={m} />
           </div>
         ))}
-        {isThinking && <ThinkingIndicator />}
+        {isThinking && !isStreaming && <ThinkingIndicator />}
         {chat.error && (
           <div role="alert" className="rounded-lg bg-negative/10 p-4 text-sm text-negative">
             <p>{turnErrorText(chat.error)}</p>
@@ -311,6 +311,8 @@ export function ChatPage(): React.JSX.Element {
         <div
           role="log"
           aria-live="polite"
+          // Announce the finished answer once, not every streamed token.
+          aria-busy={isStreaming}
           aria-label="Conversation"
           className="flex-1 overflow-y-auto px-6 py-6"
         >

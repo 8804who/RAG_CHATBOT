@@ -5,11 +5,13 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import anyio
 import pytest
 from langchain.agents.middleware import SummarizationMiddleware
 from langchain_core.callbacks import UsageMetadataCallbackHandler
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
+from langchain_core.outputs import ChatGenerationChunk
 from langgraph.checkpoint.memory import InMemorySaver
 
 from core.constants import CHAT_SUMMARY_MODEL
@@ -1195,3 +1197,525 @@ def test_delete_chat_success_with_read_transaction_ended_before_lock():
 
     assert calls[0] == "commit"
     assert calls.index("commit", 1) < calls.index("adelete_thread")
+
+
+def _fake_stream_graph(
+    chunks: list,
+    messages: list,
+    before: list | None = None,
+    usage: dict | None = None,
+    error: BaseException | None = None,
+) -> MagicMock:
+    """
+    스트리밍 그래프 대역
+
+    astream(stream_mode="messages")은 (chunk, metadata) 쌍을 차례로 내고, error가
+    있으면 모든 chunk 뒤에 던진다. aget_state는 첫 호출에 턴 시작 전 메시지(before),
+    이후 호출에 실행 후 스레드 메시지(messages)를 돌려준다.
+    """
+
+    async def astream(state, config, **kwargs):
+        for callback in config["callbacks"]:
+            if isinstance(callback, UsageMetadataCallbackHandler):
+                callback.usage_metadata = dict(usage or {})
+        for chunk in chunks:
+            yield chunk
+        if error is not None:
+            raise error
+
+    graph = MagicMock()
+    graph.astream = MagicMock(side_effect=astream)
+    graph.aget_state = AsyncMock(
+        side_effect=[
+            SimpleNamespace(values={"messages": list(before or [])}),
+            SimpleNamespace(values={"messages": messages}),
+        ]
+    )
+    graph.aupdate_state = AsyncMock()
+    return graph
+
+
+def _model_chunk(text: str, node: str = "model") -> tuple:
+    return AIMessageChunk(content=text), {"langgraph_node": node}
+
+
+async def _collect(events) -> list:
+    return [event async for event in events]
+
+
+def _stream(orchestrator, graph, db=None) -> list:
+    async def run() -> list:
+        events = await orchestrator.stream_message(
+            db or AsyncMock(), chat_id="c1", query="질문", requester=_user()
+        )
+        return await _collect(events)
+
+    with (
+        patch("services.agent.agent_orchestrator.create_agent", return_value=graph),
+        patch(
+            "services.agent.agent_orchestrator.build_web_search_tool",
+            return_value=None,
+        ),
+    ):
+        return asyncio.run(run())
+
+
+def test_stream_message_success_with_tokens_then_done():
+    """
+    메시지 스트리밍(성공) - 모델 토큰을 순서대로 보낸 뒤 영속화하고 done 1회
+
+    입력 데이터
+        - model 노드 chunk "안녕", "하세요" + 빈 chunk(tool_call 조각)
+        - 실행 후 스레드: [질문, 도구 결과(인용 1건), 답변 "안녕하세요"]
+        - usage: 입력 7, 출력 5
+
+    예상 출력 데이터
+        - 이벤트 = token "안녕", token "하세요", done(답변 "안녕하세요", 인용 1건)
+        - add_turn_messages·사용량 로그·체크포인트 정리 후 잠금 해제
+        - astream은 stream_mode="messages", durability="exit"
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    messages = [
+        HumanMessage(content="질문", id="h1"),
+        _tool_message(
+            content=json.dumps({"results": [{"chunk_id": "k1", "filename": "a"}]}),
+            id="t1",
+        ),
+        AIMessage(content="안녕하세요", id="a1"),
+    ]
+    graph = _fake_stream_graph(
+        [_model_chunk("안녕"), _model_chunk(""), _model_chunk("하세요")],
+        messages,
+        usage={"gpt-4o-mini": _usage(7, 5)},
+    )
+
+    events = _stream(orchestrator, graph)
+
+    assert [(e.event, e.content) for e in events[:-1]] == [
+        ("token", "안녕"),
+        ("token", "하세요"),
+    ]
+    done = events[-1]
+    assert done.event == "done"
+    assert done.result.content == "안녕하세요"
+    assert [c.chunk_id for c in done.result.citations] == ["k1"]
+    kwargs = deps["chat_repository"].add_turn_messages.call_args.kwargs
+    assert (kwargs["query"], kwargs["answer"]) == ("질문", "안녕하세요")
+    usage_kwargs = deps["log_repository"].create_chat_usage_log.call_args.kwargs
+    assert (usage_kwargs["input_tokens"], usage_kwargs["output_tokens"]) == (7, 5)
+    deps["checkpointer"].aprune.assert_awaited_once_with(["c1"], strategy="keep_latest")
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+    astream_kwargs = graph.astream.call_args.kwargs
+    assert astream_kwargs["stream_mode"] == "messages"
+    assert astream_kwargs["durability"] == "exit"
+    graph.aupdate_state.assert_not_awaited()
+
+
+class _ToolCallStreamingFakeModel(_ToolCallingFakeModel):
+    """tool_calls까지 chunk 1개로 스트리밍하는 가짜 모델(GenericFakeChatModel은 본문만 스트리밍)."""
+
+    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+        message = next(self.messages)
+        tool_call_chunks = [
+            {
+                "name": call["name"],
+                "args": json.dumps(call["args"]),
+                "id": call["id"],
+                "index": index,
+            }
+            for index, call in enumerate(message.tool_calls)
+        ]
+        yield ChatGenerationChunk(
+            message=AIMessageChunk(
+                content=message.content, tool_call_chunks=tool_call_chunks
+            )
+        )
+
+
+def _real_graph_orchestrator(
+    model_messages: list, retrieval_service=None, model_class=_ToolCallingFakeModel
+):
+    checkpointer = InMemorySaver()
+    registry = MagicMock()
+    registry.resolve.return_value = model_class(messages=iter(model_messages))
+    orchestrator, deps = _make_orchestrator(
+        checkpointer=checkpointer,
+        chat_model_registry=registry,
+        retrieval_service=retrieval_service or AsyncMock(),
+    )
+    deps["chat_repository"].get_chat.return_value = _chat()
+    return orchestrator, deps, checkpointer
+
+
+async def _thread_messages(checkpointer) -> list:
+    state = await checkpointer.aget_tuple({"configurable": {"thread_id": "c1"}})
+    return state.checkpoint["channel_values"].get("messages", []) if state else []
+
+
+def test_stream_message_success_with_real_agent_graph():
+    """
+    메시지 스트리밍(성공) - 실제 create_agent + InMemorySaver 그래프
+
+    입력 데이터
+        - 가짜 모델(토큰 단위 스트리밍) 답변 "첫 답변 입니다"
+
+    예상 출력 데이터
+        - token 이어붙인 값 = "첫 답변 입니다", 마지막 이벤트 done(같은 답변)
+        - 스레드 = [질문, 답변], add_turn_messages 1회
+    """
+    orchestrator, deps, checkpointer = _real_graph_orchestrator(
+        [AIMessage(content="첫 답변 입니다")]
+    )
+
+    async def scenario() -> tuple[list, list]:
+        events = await orchestrator.stream_message(
+            AsyncMock(), chat_id="c1", query="질문", requester=_user()
+        )
+        return await _collect(events), await _thread_messages(checkpointer)
+
+    with patch(
+        "services.agent.agent_orchestrator.build_web_search_tool", return_value=None
+    ):
+        events, thread = asyncio.run(scenario())
+
+    tokens = [e.content for e in events if e.event == "token"]
+    assert len(tokens) > 1
+    assert "".join(tokens) == "첫 답변 입니다"
+    assert [e.event for e in events][-1] == "done"
+    assert events[-1].result.content == "첫 답변 입니다"
+    assert [m.content for m in thread] == ["질문", "첫 답변 입니다"]
+    deps["chat_repository"].add_turn_messages.assert_awaited_once()
+
+
+def test_stream_message_success_with_summarization_chunks_skipped():
+    """
+    메시지 스트리밍(성공) - 요약 미들웨어·도구 노드 출력은 token으로 보내지 않음
+
+    입력 데이터
+        - SummarizationMiddleware.before_model 노드 chunk "요약문"
+        - tools 노드 메시지 "도구 결과", model 노드 chunk "답변"
+
+    예상 출력 데이터
+        - token은 "답변" 1건뿐, 이어서 done
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    graph = _fake_stream_graph(
+        [
+            _model_chunk("요약문", node="SummarizationMiddleware.before_model"),
+            (_tool_message(content="도구 결과"), {"langgraph_node": "tools"}),
+            _model_chunk("답변"),
+        ],
+        [AIMessage(content="답변", id="a1")],
+    )
+
+    events = _stream(orchestrator, graph)
+
+    assert [(e.event, e.content) for e in events] == [("token", "답변"), ("done", "")]
+
+
+def _assert_rolled_back_and_unlocked(deps, graph, previous) -> None:
+    _, update = graph.aupdate_state.call_args.args
+    remove_all, restored = update["messages"]
+    assert remove_all.type == "remove"
+    assert restored is previous
+    deps["chat_repository"].add_turn_messages.assert_not_awaited()
+    deps["log_repository"].create_chat_usage_log.assert_not_awaited()
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+
+
+def test_stream_message_failed_with_app_exception_mid_stream():
+    """
+    메시지 스트리밍(실패) - 토큰 일부 전송 후 AppException
+
+    입력 데이터
+        - model chunk "부분" 후 UnsupportedChatModelError(message="모델 오류")
+        - 턴 시작 전 스레드 [이전 질문]
+
+    예상 출력 데이터
+        - 이벤트 = token "부분", error "모델 오류"(done 없음)
+        - 스레드 롤백, 메시지·사용량 저장 없음, 잠금 해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    previous = HumanMessage(content="이전 질문", id="h0")
+    graph = _fake_stream_graph(
+        [_model_chunk("부분")],
+        [],
+        before=[previous],
+        error=UnsupportedChatModelError(message="모델 오류", code_path="p"),
+    )
+
+    events = _stream(orchestrator, graph)
+
+    assert [(e.event, e.content) for e in events] == [
+        ("token", "부분"),
+        ("error", "모델 오류"),
+    ]
+    _assert_rolled_back_and_unlocked(deps, graph, previous)
+
+
+def test_stream_message_failed_with_unexpected_error_hides_detail():
+    """
+    메시지 스트리밍(실패) - 예상하지 못한 예외는 일반 문구로만 노출
+
+    입력 데이터
+        - 첫 chunk 전에 RuntimeError("qdrant password=secret")
+
+    예상 출력 데이터
+        - 이벤트 = error "일시적으로 장애가 발생하였습니다." 1건
+        - 스레드 롤백, 저장 없음, 잠금 해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    previous = HumanMessage(content="이전 질문", id="h0")
+    graph = _fake_stream_graph(
+        [], [], before=[previous], error=RuntimeError("qdrant password=secret")
+    )
+
+    events = _stream(orchestrator, graph)
+
+    assert [(e.event, e.content) for e in events] == [
+        ("error", "일시적으로 장애가 발생하였습니다.")
+    ]
+    _assert_rolled_back_and_unlocked(deps, graph, previous)
+
+
+def test_stream_message_failed_with_persistence_error():
+    """
+    메시지 스트리밍(실패) - 스트림은 끝났지만 메시지 저장 실패
+
+    입력 데이터
+        - model chunk "답변" 정상, add_turn_messages가 RuntimeError
+
+    예상 출력 데이터
+        - 이벤트 = token "답변", error 일반 문구(done 없음), 스레드 롤백, 잠금 해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    deps["chat_repository"].add_turn_messages.side_effect = RuntimeError("db down")
+    graph = _fake_stream_graph([_model_chunk("답변")], [AIMessage(content="답변")])
+
+    events = _stream(orchestrator, graph)
+
+    assert [e.event for e in events] == ["token", "error"]
+    graph.aupdate_state.assert_awaited_once()
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+
+
+@pytest.mark.parametrize(
+    ("chat", "acquired", "error"),
+    [
+        (None, True, ChatNotFoundError),
+        (_chat(owner_id=99), True, ChatAccessDeniedError),
+        (_chat(), False, ChatTurnInProgressError),
+    ],
+)
+def test_stream_message_failed_with_pre_stream_error(chat, acquired, error):
+    """
+    메시지 스트리밍(실패) - 스트림 시작 전 검증 실패(없는 채팅/남의 채팅/턴 진행 중)
+
+    입력 데이터
+        - 각각 get_chat = None / owner_id 99 / Redis SET NX 실패
+
+    예상 출력 데이터
+        - stream_message 호출 자체가 404/403/409 예외(스트림 미반환)
+        - 에이전트 미실행, 남의 잠금 미해제
+    """
+    orchestrator, deps = _make_orchestrator(redis_client=_redis(acquired=acquired))
+    deps["chat_repository"].get_chat.return_value = chat
+
+    with patch("services.agent.agent_orchestrator.create_agent") as create_agent:
+        with pytest.raises(error):
+            asyncio.run(
+                orchestrator.stream_message(
+                    AsyncMock(), chat_id="c1", query="질문", requester=_user()
+                )
+            )
+
+    create_agent.assert_not_called()
+    deps["redis_client"].delete.assert_not_awaited()
+
+
+def test_stream_message_failed_with_chat_deleted_after_lock():
+    """
+    메시지 스트리밍(실패) - 잠금 대기 중 채팅 삭제
+
+    입력 데이터
+        - get_chat: 잠금 전 = 채팅, 잠금 후 재확인 = None
+
+    예상 출력 데이터
+        - raise ChatNotFoundError(404), 에이전트 미실행, 잡은 잠금은 즉시 해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.side_effect = [_chat(), None]
+
+    with patch("services.agent.agent_orchestrator.create_agent") as create_agent:
+        with pytest.raises(ChatNotFoundError):
+            asyncio.run(
+                orchestrator.stream_message(
+                    AsyncMock(), chat_id="c1", query="질문", requester=_user()
+                )
+            )
+
+    create_agent.assert_not_called()
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+
+
+def test_stream_message_failed_with_consumer_cancelled_mid_tool_call():
+    """
+    메시지 스트리밍(실패) - 도구 실행 중 스트림 소비 task 취소(클라이언트 끊김)
+
+    입력 데이터
+        - 실제 InMemorySaver 그래프, 모델이 search_documents tool_call
+        - 검색 도구 실행 중 스트림을 소비하던 task를 cancel
+
+    예상 출력 데이터
+        - CancelledError 전파, 스레드 = 턴 시작 전(빈 스레드, 답 없는 tool_calls 없음)
+        - 잠금 해제, chat_messages 저장 없음
+    """
+    tool_started = asyncio.Event()
+
+    async def hang(*args, **kwargs):
+        tool_started.set()
+        await asyncio.Event().wait()
+
+    retrieval_service = AsyncMock()
+    retrieval_service.retrieve.side_effect = hang
+    tool_call = {
+        "name": "search_documents",
+        "args": {"query": "q"},
+        "id": "call_1",
+        "type": "tool_call",
+    }
+    orchestrator, deps, checkpointer = _real_graph_orchestrator(
+        [AIMessage(content="", tool_calls=[tool_call])],
+        retrieval_service,
+        model_class=_ToolCallStreamingFakeModel,
+    )
+
+    async def scenario() -> list:
+        events = await orchestrator.stream_message(
+            AsyncMock(), chat_id="c1", query="질문", requester=_user()
+        )
+        task = asyncio.create_task(_collect(events))
+        await tool_started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        return await _thread_messages(checkpointer)
+
+    with patch(
+        "services.agent.agent_orchestrator.build_web_search_tool", return_value=None
+    ):
+        thread = asyncio.run(scenario())
+
+    assert thread == []
+    deps["redis_client"].delete.assert_awaited_once_with("chat:turn-lock:c1")
+    deps["chat_repository"].add_turn_messages.assert_not_awaited()
+
+
+def test_stream_message_failed_with_stream_closed_after_first_token():
+    """
+    메시지 스트리밍(실패) - 첫 토큰 수신 후 스트림을 닫음(Starlette가 끊긴 응답을 닫는 경로)
+
+    입력 데이터
+        - model chunk "부분", "나머지" 중 "부분"만 받고 aclose()
+        - 턴 시작 전 스레드 [이전 질문]
+
+    예상 출력 데이터
+        - 스레드 롤백, 저장 없음, 잠금 해제
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    previous = HumanMessage(content="이전 질문", id="h0")
+    graph = _fake_stream_graph(
+        [_model_chunk("부분"), _model_chunk("나머지")], [], before=[previous]
+    )
+
+    async def scenario() -> str:
+        events = await orchestrator.stream_message(
+            AsyncMock(), chat_id="c1", query="질문", requester=_user()
+        )
+        first = await anext(events)
+        await events.aclose()
+        return first.content
+
+    with (
+        patch("services.agent.agent_orchestrator.create_agent", return_value=graph),
+        patch(
+            "services.agent.agent_orchestrator.build_web_search_tool",
+            return_value=None,
+        ),
+    ):
+        first = asyncio.run(scenario())
+
+    assert first == "부분"
+    _assert_rolled_back_and_unlocked(deps, graph, previous)
+
+
+def test_stream_message_failed_with_anyio_cancel_scope_after_first_token(caplog):
+    """
+    메시지 스트리밍(실패) - 첫 토큰 후 anyio cancel scope 취소(uvicorn spec 2.3 + Starlette 끊김 경로)
+
+    입력 데이터
+        - 그래프: "부분" chunk 후 LLM 대기(끝나지 않음), 턴 시작 전 스레드 [이전 질문]
+        - 롤백(aupdate_state)·잠금 해제(redis.delete)가 한 번 양보(await) 후 완료
+        - 소비 task를 task group의 cancel scope로 취소(재-await마다 다시 취소되는 level 방식)
+
+    예상 출력 데이터
+        - 롤백·잠금 해제 모두 완료, 저장 없음
+        - 끊김 로그는 WARNING(ERROR traceback 없음)
+    """
+    orchestrator, deps = _make_orchestrator()
+    deps["chat_repository"].get_chat.return_value = _chat()
+    previous = HumanMessage(content="이전 질문", id="h0")
+    graph = _fake_stream_graph([], [], before=[previous])
+    first_token = asyncio.Event()
+    done: list[str] = []
+
+    async def hanging_astream(state, config, **kwargs):
+        yield _model_chunk("부분")
+        await asyncio.Event().wait()
+
+    async def rollback(*args, **kwargs) -> None:
+        await asyncio.sleep(0)
+        done.append("rolled back")
+
+    async def unlock(*args, **kwargs) -> None:
+        await asyncio.sleep(0)
+        done.append("unlocked")
+
+    graph.astream = MagicMock(side_effect=hanging_astream)
+    graph.aupdate_state = AsyncMock(side_effect=rollback)
+    deps["redis_client"].delete.side_effect = unlock
+
+    async def scenario() -> None:
+        events = await orchestrator.stream_message(
+            AsyncMock(), chat_id="c1", query="질문", requester=_user()
+        )
+
+        async def consume() -> None:
+            async for _ in events:
+                first_token.set()
+
+        async with anyio.create_task_group() as task_group:
+            task_group.start_soon(consume)
+            await first_token.wait()
+            task_group.cancel_scope.cancel()
+
+    with (
+        patch("services.agent.agent_orchestrator.create_agent", return_value=graph),
+        patch(
+            "services.agent.agent_orchestrator.build_web_search_tool",
+            return_value=None,
+        ),
+        caplog.at_level(logging.WARNING, logger="services.agent.agent_orchestrator"),
+    ):
+        asyncio.run(scenario())
+
+    assert done == ["rolled back", "unlocked"]
+    _assert_rolled_back_and_unlocked(deps, graph, previous)
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert any(r.levelno == logging.WARNING for r in caplog.records)

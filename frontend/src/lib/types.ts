@@ -83,6 +83,15 @@ export interface ChatMessageResponse {
   citations: CitationResponse[]
 }
 
+// POST /chats/{id}/messages/stream SSE payloads; `done` carries a ChatMessageResponse.
+export interface StreamTokenEvent {
+  content: string
+}
+
+export interface StreamErrorEvent {
+  detail: string
+}
+
 // GET /chats/{id}/messages: restores a chat on reload (pinned model/collection
 // + stored turns, oldest first; user rows have empty citations).
 export interface ChatHistoryMessageResponse {

@@ -18,7 +18,7 @@ Pricing: `core/model_config/pricing_config.py` (model keys must match the catalo
 
 ## LLM system setup (implementation · `rag-llm-engineer`)
 
-- **Approach:** not a fixed retrieve→generate pipeline but a **tool-calling agent built on LangChain `create_agent`** (LangGraph). Non-streaming.
+- **Approach:** not a fixed retrieve→generate pipeline but a **tool-calling agent built on LangChain `create_agent`** (LangGraph). Final-answer tokens stream over SSE via `astream(stream_mode="messages")` filtered to the `model` node (D-018); a non-streaming `ainvoke` path remains.
 - **Execution limits:** `AGENT_RECURSION_LIMIT = 20` graph steps; completion token cap `DEFAULT_CHAT_MAX_COMPLETION_TOKENS = 1024`.
 - **Token accounting:** sum every `AIMessage.usage_metadata` in a turn → `chat_usage_logs`. Tool calls → `agent_tool_call_logs`.
 - **Tracing:** Langfuse callback (when keys are set), with `langfuse_session_id` / `langfuse_user_id` metadata.

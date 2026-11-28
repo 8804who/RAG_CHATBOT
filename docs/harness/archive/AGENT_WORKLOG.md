@@ -334,3 +334,39 @@
 - Did: CR-018 re-review PASS; F1, F2, img closed; F3 deliberately skipped; no new findings.
 - Verification: code review only; PM re-ran build (OK) + lint (clean).
 - Cost: 29634 tokens, 4 tool uses, 8 s
+### 2026-11-28 · frontend-code-reviewer · T-049
+- Work: reviewed T-048 streaming UI
+- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-019)
+- Deliverables: CR-019 PASS_WITH_NOTES, no blocking items
+- Verification: `npm run build` OK, `npm run lint` clean; byte-offset split fuzz of `sse.ts` (CRLF, Korean, multi-line data) 0 mismatches (scratch, as reported). Live nginx stream, screen reader, render profiling not run
+- Issues found: F1 id swap remounts bubbles/scroll jump on done; F2 per-token re-render of all bubbles; F3 aria-busy support varies; F4 `proxy_buffering off` redundant; F5 stream error status 200
+- Follow-up: frontend-developer revises F1 + F4; F2/F3/F5 accepted as notes
+- Cost: 52063 tokens / 9 tool uses / 84s
+
+### 2026-11-28 · frontend-code-reviewer · T-049 (re-review)
+- Work: re-reviewed CR-019 F1/F4 fixes
+- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-019 re-review)
+- Deliverables: PASS, no blocking items
+- Verification: `npm run build` OK, `npm run lint` clean (as reported). Live nginx stream not run
+- Issues found: none new
+- Follow-up: manual check that tokens arrive incrementally through the frontend container
+- Cost: 34515 tokens / 4 tool uses / 21s
+
+### 2026-11-28 · backend-code-reviewer · T-047
+- Work: reviewed T-046 SSE endpoint
+- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-020)
+- Deliverables: CR-020 CHANGES_REQUIRED
+- Verification: repro with real Starlette 1.3.0 StreamingResponse + anyio 4.13.0 (scratch scripts): after disconnect, rollback and lock delete do not complete; with `anyio.CancelScope(shield=True)` they do (as reported). pytest/ruff not re-run by reviewer
+- Issues found: F1 major (cleanup cancelled by anyio scope), F2 test gap (fake cleanup never awaits); minor: body iterator not aclosed on disconnect (GC finalizer), each disconnect logs ERROR+traceback
+- Follow-up: backend-developer revises F1/F2
+- Cost: 65422 tokens / 14 tool uses / 129s
+
+### 2026-11-28 · backend-code-reviewer · T-047 (re-review)
+- Work: re-reviewed CR-020 F1/F2 fixes
+- Files: `docs/harness/CODE_REVIEW_LOG.md` (CR-020 re-review)
+- Deliverables: PASS_WITH_NOTES, no blocking items
+- Verification: scratch repro `starlette_fix.py` with real `_shielded` → rollback + lock delete complete; `PYTHONPATH=. uv run pytest -q` 176 passed; removing the CancelScope line fails 2 tests (restored) (as reported). Live Redis/Postgres/OpenAI/nginx not run
+- Issues found: anyio is a transitive dep imported directly (optional `uv add anyio`); stuck Redis/DB during shielded cleanup would delay shutdown
+- Follow-up: none blocking
+- Cost: 40969 tokens / 9 tool uses / 59s
+

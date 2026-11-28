@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-RAG chatbot monorepo. It has an agentic RAG chat: a LangChain/LangGraph tool-calling agent over Qdrant, non-streaming. It also has Google OAuth login, Kafka-based document ingestion, and a React SPA.
+RAG chatbot monorepo. It has an agentic RAG chat: a LangChain/LangGraph tool-calling agent over Qdrant; answers stream over SSE (`POST /chats/{id}/messages/stream`, D-018), and the non-streaming endpoint stays for eval/loadtest. It also has Google OAuth login, Kafka-based document ingestion, and a React SPA.
 
 | Path | What | Details |
 |---|---|---|

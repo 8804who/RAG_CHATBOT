@@ -14,7 +14,7 @@ import {
   deleteChat,
   getChatHistory,
   listChats,
-  sendMessage,
+  streamMessage,
 } from '../lib/api/chat'
 import { ApiError } from '../lib/api/client'
 import { uid } from '../lib/id'
@@ -72,6 +72,8 @@ interface Turn {
   // null until createChat succeeds.
   chatId: string | null
   text: string
+  // Streamed answer so far; '' until the first token.
+  answer: string
   error: Error | null
 }
 
@@ -81,7 +83,10 @@ interface UseChatResult {
   historyError: Error | null
   refetchHistory: () => void
   messages: ChatMessage[]
+  // A turn is running (answer pending or streaming): blocks sending.
   isThinking: boolean
+  // Tokens have arrived: the answer bubble replaces the thinking indicator.
+  isStreaming: boolean
   error: Error | null
   // The failed question, so the input can offer its text again.
   failedTurn: { id: string; text: string } | null
@@ -127,16 +132,30 @@ export function useChat({
   // navigating elsewhere still writes its answer into its own chat's cache.
   const visibleTurn = turn && turn.chatId === chatId ? turn : null
   const isThinking = visibleTurn !== null && visibleTurn.error === null
+  const isStreaming = isThinking && visibleTurn.answer !== ''
 
   const history = chatId ? historyQuery.data : undefined
   const messages: ChatMessage[] = [...(history?.messages ?? [])]
   if (visibleTurn) {
+    // Same ids the cache write on done will use, so the bubbles keep their
+    // nodes (and the scroll position) when the turn lands in history.
+    const n = messages.length
+    const msgId = (i: number): string =>
+      chatId ? chatMessageId(chatId, n + i) : `${visibleTurn.id}-${i}`
     messages.push({
-      id: visibleTurn.id,
+      id: msgId(0),
       role: 'user',
       content: visibleTurn.text,
       createdAt: '',
     })
+    if (isStreaming) {
+      messages.push({
+        id: msgId(1),
+        role: 'assistant',
+        content: visibleTurn.answer,
+        createdAt: '',
+      })
+    }
   }
 
   function abortInflight(): void {
@@ -181,7 +200,13 @@ export function useChat({
         navigate(`/chat/${encodeURIComponent(id)}`, { replace: true })
         void qc.invalidateQueries({ queryKey: CHAT_LIST_KEY })
       }
-      const answer = await sendMessage(id, next.text, controller.signal)
+      const answer = await streamMessage(
+        id,
+        next.text,
+        (delta) =>
+          setTurn((t) => (t?.id === next.id ? { ...t, answer: t.answer + delta } : t)),
+        controller.signal,
+      )
       const target = id
       // Returning undefined skips the write, so a cache cleared by sign-out
       // stays cleared.
@@ -205,7 +230,8 @@ export function useChat({
     } catch (err) {
       if (controller.signal.aborted) return
       const error = err instanceof Error ? err : new Error(String(err))
-      setTurn((t) => (t?.id === next.id ? { ...t, error } : t))
+      // Nothing was saved (D-016): drop the partial answer, keep the question for Retry.
+      setTurn((t) => (t?.id === next.id ? { ...t, answer: '', error } : t))
     } finally {
       if (inflightRef.current === inflight) inflightRef.current = null
     }
@@ -214,7 +240,7 @@ export function useChat({
   function send(text: string): void {
     const trimmed = text.trim()
     if (!trimmed || isThinking) return
-    void run({ id: uid(), chatId, text: trimmed, error: null })
+    void run({ id: uid(), chatId, text: trimmed, answer: '', error: null })
   }
 
   function retry(): void {
@@ -235,6 +261,7 @@ export function useChat({
     refetchHistory: () => void historyQuery.refetch(),
     messages,
     isThinking,
+    isStreaming,
     error: visibleTurn?.error ?? null,
     failedTurn: visibleTurn?.error ? { id: visibleTurn.id, text: visibleTurn.text } : null,
     send,

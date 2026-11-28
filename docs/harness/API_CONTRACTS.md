@@ -34,8 +34,11 @@
 | GET | `/chats` | ✔ | – | `ChatListResponse` (`chats[]`: `id`, `title` (first user message, whitespace-collapsed, > 60 chars → 60 + "…"; null if no messages), `chat_model`, `collection_name`, `created_at`, `last_message_at` (null if no messages)). Caller's chats only, ordered by `COALESCE(last_message_at, created_at)` DESC, `id`; max 100, no pagination. | 401 |
 | DELETE | `/chats/{chat_id}` | ✔ | – | 204. Deletes the chat, its messages (cascade) and its agent checkpoint thread. Usage/tool-call logs are kept. | 403 someone else's chat, 404, 409 a turn of this chat is in progress (`ChatTurnInProgressError`) |
 | POST | `/chats/{chat_id}/messages` | ✔ | `SendChatMessageRequest` (`query` 1–4000 chars) | `ChatMessageResponse` (`content`, `citations[]`) | 403 someone else's chat, 404, 409 another turn of this chat is in progress (`ChatTurnInProgressError`). A failed turn stores nothing (D-016), so the client can resend. |
+| POST | `/chats/{chat_id}/messages/stream` | ✔ | `SendChatMessageRequest` | 200 `text/event-stream`: `token` / `done` (`ChatMessageResponse`) / `error` events, see SSE note below | Before the stream starts: 403, 404, 409, 422 as JSON `{"detail"}`. After the stream starts: in-band `error` event (turn rolled back, D-016). |
 | GET | `/chats/{chat_id}/messages` | ✔ | – | `ChatHistoryResponse` (`chat_model`, `collection_name`, `messages[]`: `role`, `content`, `citations[]` (empty for user rows), `created_at`; oldest first) | 403 someone else's chat, 404 |
 | GET | `/usage/stats` | ✔ | – | `UsageStatsResponse` | 401 |
+
+SSE (`/chats/{chat_id}/messages/stream`, D-018): each frame is `event: <name>` + `data: <JSON>`. `token` `{"content"}` is an answer text delta. `done` is the authoritative final `ChatMessageResponse`, sent after persistence; the client replaces the streamed text with it. `error` `{"detail"}` means the turn stored nothing. A stream ends with exactly one `done` or `error`. Headers: `Cache-Control: no-cache`, `X-Accel-Buffering: no`. Clients use `fetch` + `ReadableStream` (POST, so no `EventSource`).
 
 Outside `/api`: health check `/health` and `/`, and Prometheus `/metrics` (root path, unauthenticated, not proxied by nginx; KI-020). These are excluded from the API call log and the uvicorn access log unless `LOG_INFRA_ENDPOINTS=true`.
 
@@ -74,3 +77,4 @@ Outside `/api`: health check `/health` and `/`, and Prometheus `/metrics` (root 
 |---|---|---|
 | 2026-11-14 | Harness adopted; contract documented from the current code | — |
 | 2026-11-14 | Root `/metrics` added (T-015); not part of `/api` | D-012 follow-up |
+| 2026-11-28 | `POST /chats/{chat_id}/messages/stream` (SSE) added; non-streaming endpoint unchanged (T-045) | D-018 |
